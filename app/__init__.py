@@ -1,8 +1,18 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from app.routes import base_routes, mini_suomi
 
 app = FastAPI()
 
-# Register the base_routes router with the main app
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],  # Frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+)
+
+# Register the routers
 app.include_router(base_routes.router)
-app.include_router(mini_suomi.router, prefix="/mini_suomi")
+app.include_router(mini_suomi.router, prefix="/mini-suomi")
