@@ -53,10 +53,13 @@ def get_credential_configuration():
             "alg": "ES256"
         }
         
+        base_url = f"{mini_suomi.ISSUER_DOMAIN}/mini-suomi"
+        
         # The credential configuration response
         configuration = {
-            "credential_issuer": "https://ewc-issuer.nieuwlaar.com/mini-suomi/issuers/kvk",
-            "credential_endpoint": "https://ewc-issuer.nieuwlaar.com/mini-suomi/issuers/kvk/openid4vci/issue",
+            "credential_issuer": f"{base_url}/issuers/kvk",
+            "credential_endpoint": f"{base_url}/issuers/kvk/openid4vci/issue",
+            "token_endpoint": f"{base_url}/token",  # Added token endpoint
             "jwks": {
                 "keys": [jwk]
             }
@@ -82,5 +85,44 @@ def get_jwks():
         return {
             "keys": [jwk]
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/credential_offer")
+def get_credential_offer(id: str):
+    try:
+        # For now, only handle the mock offer ID
+        if id != "mockOfferId123":
+            raise HTTPException(status_code=404, detail="Credential offer not found")
+            
+        # Get base URL from environment
+        base_url = f"{mini_suomi.ISSUER_DOMAIN}/mini-suomi"
+        
+        # Construct the credential offer metadata
+        credential_offer = {
+            "credential_issuer": f"{base_url}/issuers/kvk",
+            "credentials": [
+                {
+                    "format": "vc+sd-jwt",
+                    "types": ["LegalPerson"],
+                    "credential_definition": {
+                        "type": ["VerifiableCredential", "LegalPersonCredential"]
+                    }
+                }
+            ],
+            "grants": {
+                "urn:ietf:params:oauth:grant-type:pre-authorized_code": {
+                    "pre-authorized_code": "mock_pre_authorized_code_123",
+                    # Optional: Require transaction code for additional security
+                    # "tx_code": {
+                    #     "input_mode": "numeric",
+                    #     "length": 6,
+                    #     "description": "Please enter the code sent to your email"
+                    # }
+                }
+            }
+        }
+        
+        return credential_offer
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
