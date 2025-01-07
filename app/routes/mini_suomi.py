@@ -125,3 +125,62 @@ def get_credential_offer(id: str):
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/issuers/kvk/.well-known/openid-credential-issuer")
+def get_credential_issuer_metadata():
+    try:
+        base_url = f"{mini_suomi.ISSUER_DOMAIN}/mini-suomi"
+        
+        metadata = {
+            "credential_issuer": f"{base_url}/issuers/kvk",
+            "credential_endpoint": f"{base_url}/issuers/kvk/openid4vci/issue",
+            "token_endpoint": f"{base_url}/token",
+            "credential_configurations_supported": {
+                "LPIDSdJwt": {
+                    "format": "vc+sd-jwt",
+                    "scope": "LPIDSdJwt",
+                    "cryptographic_binding_methods_supported": ["jwk"],
+                    "credential_signing_alg_values_supported": ["ES256"],
+                    "proof_types_supported": {
+                        "jwt": {
+                            "proof_signing_alg_values_supported": ["ES256"]
+                        }
+                    },
+                    "display": [{
+                        "name": "Legal Person Identifier",
+                        "locale": "en-US",
+                        "logo": {
+                            "uri": "https://example.com/logo.png",
+                            "alt_text": "Legal Person ID logo"
+                        },
+                        "background_color": "#12107c",
+                        "text_color": "#FFFFFF"
+                    }],
+                    "claims": [
+                        {
+                            "path": ["legal_person_id"],
+                            "display": [{
+                                "name": "Legal Person ID",
+                                "locale": "en-US"
+                            }]
+                        },
+                        {
+                            "path": ["legal_person_name"],
+                            "display": [{
+                                "name": "Legal Person Name",
+                                "locale": "en-US"
+                            }]
+                        }
+                    ]
+                }
+            }
+        }
+        
+        # Return with correct content type
+        return JSONResponse(
+            content=metadata,
+            media_type="application/json",
+            headers={"Content-Language": "en-US"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
