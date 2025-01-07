@@ -305,24 +305,28 @@ async def issue_credential_endpoint(
     authorization: str = Header(None)
 ):
     try:
-        # Log incoming request details
+        # Log full request details
         body = await request.json()
-        logging.info(f"Received request body: {body}")
-        logging.info(f"Authorization header: {authorization}")
-
+        logging.info("=== Credential Request Details ===")
+        logging.info(f"Request Body: {body}")
+        logging.info(f"Authorization: {authorization}")
+        logging.info(f"Headers: {dict(request.headers)}")
+        
         # Validate authorization token
         if not authorization or not authorization.startswith("Bearer "):
+            logging.error("Missing or invalid authorization token")
             return JSONResponse(
                 status_code=401,
                 content={"error": "invalid_token"},
                 headers={"WWW-Authenticate": "Bearer"}
             )
 
-        # Log parsed request
-        logging.info(f"Parsed request: {request_body}")
+        # Log parsed request body
+        logging.info(f"Parsed Request Body: {request_body}")
 
         # Validate format and types
         if request_body.format != "vc+sd-jwt":
+            logging.error(f"Unsupported format: {request_body.format}")
             return JSONResponse(
                 status_code=400,
                 content={
@@ -332,26 +336,30 @@ async def issue_credential_endpoint(
             )
 
         if not request_body.types or "LegalPerson" not in request_body.types:
+            logging.error(f"Invalid types: {request_body.types}")
             return JSONResponse(
                 status_code=400,
                 content={
                     "error": "unsupported_credential_type",
-                    "error_description": "Only LPIDSdJwt credential type is supported"
+                    "error_description": "LegalPerson type is required"
                 }
             )
 
         # Mock credential issuance
+        logging.info("Generating credential...")
         mock_credential = "eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.mock_credential_payload.mock_signature"
         
-        # Return the credential
+        # Construct response
         response = {
             "credentials": [
                 {
-                    "credential": mock_credential
+                    "credential": mock_credential,
+                    "format": "vc+sd-jwt"
                 }
             ]
         }
         
+        logging.info(f"Sending response: {response}")
         return JSONResponse(
             content=response,
             media_type="application/json",
@@ -359,9 +367,10 @@ async def issue_credential_endpoint(
         )
 
     except Exception as e:
-        logging.error(f"Error processing request: {str(e)}")
+        logging.error(f"Error in credential issuance: {str(e)}")
+        logging.error(f"Exception details:", exc_info=True)  # This will log the full stack trace
         return JSONResponse(
-            status_code=400,
+            status_code=500,
             content={
                 "error": "invalid_credential_request",
                 "error_description": str(e)
