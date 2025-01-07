@@ -124,7 +124,7 @@ def get_credential_offer(id: str):
             # Add credentials array as required by the spec
             "credentials": [{
                 "format": "vc+sd-jwt",
-                "types": ["LPIDSd"],
+                "types": ["LPIDSdJwt"],
                 "trust_framework": {
                     "name": "kvk",
                     "type": "Legal Entity",
@@ -335,13 +335,13 @@ async def issue_credential_endpoint(
                 }
             )
 
-        if not request_body.types or "LPIDSd" not in request_body.types:
+        if not request_body.types or "LPIDSdJwt" not in request_body.types:
             logging.error(f"Invalid types: {request_body.types}")
             return JSONResponse(
                 status_code=400,
                 content={
                     "error": "unsupported_credential_type",
-                    "error_description": "LPIDSd type is required"
+                    "error_description": "LPIDSdJwt type is required"
                 }
             )
 
