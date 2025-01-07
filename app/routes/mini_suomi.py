@@ -1,10 +1,11 @@
-from fastapi import APIRouter, HTTPException, Form
+from fastapi import APIRouter, HTTPException, Form, Request
 from fastapi.responses import StreamingResponse, JSONResponse
 from io import BytesIO
 from app.services import mini_suomi
 from typing import Optional, Dict, Any
 from pydantic import BaseModel
 from fastapi import Header
+import logging
 
 router = APIRouter()
 
@@ -296,10 +297,16 @@ async def token_endpoint(
 
 @router.post("/issuers/kvk/openid4vci/issue")
 async def issue_credential_endpoint(
-    request: CredentialRequest,
+    request_body: CredentialRequest,
+    request: Request,
     authorization: str = Header(None)
 ):
     try:
+        # Log incoming request details
+        body = await request.json()
+        logging.info(f"Received request body: {body}")
+        logging.info(f"Authorization header: {authorization}")
+
         # Validate authorization token
         if not authorization or not authorization.startswith("Bearer "):
             return JSONResponse(
@@ -308,8 +315,11 @@ async def issue_credential_endpoint(
                 headers={"WWW-Authenticate": "Bearer"}
             )
         
+        # Log parsed request
+        logging.info(f"Parsed request: {request_body}")
+
         # Validate request parameters
-        if request.credential_identifier and request.credential_configuration_id:
+        if request_body.credential_identifier and request_body.credential_configuration_id:
             return JSONResponse(
                 status_code=400,
                 content={
@@ -318,7 +328,7 @@ async def issue_credential_endpoint(
                 }
             )
             
-        if not request.credential_identifier and not request.credential_configuration_id:
+        if not request_body.credential_identifier and not request_body.credential_configuration_id:
             return JSONResponse(
                 status_code=400,
                 content={
@@ -328,7 +338,7 @@ async def issue_credential_endpoint(
             )
             
         # Validate proof (if required)
-        if request.proof and request.proofs:
+        if request_body.proof and request_body.proofs:
             return JSONResponse(
                 status_code=400,
                 content={
@@ -338,7 +348,7 @@ async def issue_credential_endpoint(
             )
 
         # For now, let's support only the LPIDSdJwt credential
-        credential_type = request.credential_configuration_id or "LPIDSdJwt"
+        credential_type = request_body.credential_configuration_id or "LPIDSdJwt"
         if credential_type != "LPIDSdJwt":
             return JSONResponse(
                 status_code=400,
