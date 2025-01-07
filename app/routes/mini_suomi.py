@@ -294,7 +294,7 @@ async def token_endpoint(
             }
         )
 
-@router.post("/issuers/kvk/openid4vci/issue")
+@router.post("/mini-suomi/issuers/kvk/openid4vci/issue")
 async def issue_credential_endpoint(
     request: CredentialRequest,
     authorization: str = Header(None)
