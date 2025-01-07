@@ -1,5 +1,26 @@
 # Succesvolle registratie:
-# 
+# {
+#   "publicKey": {
+#     "kty": "EC",
+#     "crv": "P-256",
+#     "x": "viZw39H509xRvZcNHtGw8ixFeexaF4La1ZQLZUWTUUs",
+#     "y": "ydN1o0LQAdPT1wv-0b4YBNsmQpcXzfmIKiUhhy42MXw",
+#     "alg": "ES256",
+#     "kid": "authentication-key",
+#     "use": "sig"
+#   },
+#   "privateKey": {
+#     "kty": "EC",
+#     "crv": "P-256",
+#     "x": "viZw39H509xRvZcNHtGw8ixFeexaF4La1ZQLZUWTUUs",
+#     "y": "ydN1o0LQAdPT1wv-0b4YBNsmQpcXzfmIKiUhhy42MXw",
+#     "alg": "ES256",
+#     "kid": "authentication-key",
+#     "d": "kAP-MAxRTy4F77xl-9unD-9IWfneEMC7j6E4WdSEdxI",
+#     "use": "sig"
+#   }
+# }
+
 # {
 # "publicKey": {
 #   "kty": "EC",

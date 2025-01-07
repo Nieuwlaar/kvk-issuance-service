@@ -3,37 +3,35 @@ import logging
 from app.clients.kvk_bevoegdheden_rest_api import KVKBevoegdhedenAPI
 from datetime import datetime, timedelta
 import json
+import os
+from dotenv import load_dotenv
 
-BASE_URL = "https://test.minisuomi.fi/api"
+# Load environment variables
+load_dotenv()
+
+# Get ISSUER_DOMAIN based on environment
+ENVIRONMENT = os.getenv('ENVIRONMENT', 'development')
+ISSUER_DOMAIN = os.getenv('PROD_DOMAIN') if ENVIRONMENT == "production" else os.getenv('DEV_DOMAIN')
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-def test_get_issuers():
-    url = f"{BASE_URL}/issuers"
-    response = requests.get(url)
-    assert response.status_code == 200
-    issuers = response.json()
-    return issuers
+# def test_get_issuers():
+#     url = f"{BASE_URL}/issuers"
+#     response = requests.get(url)
+#     assert response.status_code == 200
+#     issuers = response.json()
+#     return issuers
 
 def issue_credential(credentialConfiguration: str, kvkNumber: str):
+    print(f"credentialConfiguration: {credentialConfiguration}")
     try:
-        # Get LPID data
-        lpid_data = KVKBevoegdhedenAPI.get_lpid(kvkNumber)
-        
-        url = f"{BASE_URL}/issuers/kvk/openid4vci/issue/{credentialConfiguration}"
-        
-        # Generate timestamps
+        # Get LPID or company data based on credential configuration
         now = datetime.utcnow()
         one_year_from_now = now + timedelta(days=365)
         
-        params = {
-            "useCredentialOfferUri": "true",
-            "validFrom": now.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
-            "validTo": one_year_from_now.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-        }
-        
         if credentialConfiguration == "LPIDSdJwt":
+            lpid_data = KVKBevoegdhedenAPI.get_lpid(kvkNumber)
             payload = {
                 "legal_person_id": lpid_data["data"]["id"],
                 "legal_person_name": lpid_data["data"]["legal_person_name"],
@@ -48,21 +46,17 @@ def issue_credential(credentialConfiguration: str, kvkNumber: str):
             }
         elif credentialConfiguration == "EUCCSdJwt":
             company_data = KVKBevoegdhedenAPI.get_company_certificate(kvkNumber)
-            
-            # Parse and format authorized persons
-            legal_representatives = []
-            for person in company_data["data"]["authorized_persons"]:
-                name_parts = person["full_name"].split()
-                legal_representatives.append({
-                    "role": "J",  # Default role as we don't have this info
+            legal_representatives = [
+                {
+                    "role": "J",
                     "legalEntityId": company_data["data"]["registration_number"],
-                    "scopeOfRepresentation": "Jointly",  # Default value
-                    "family_name": name_parts[-1],
-                    "given_name": " ".join(name_parts[:-1]),
+                    "scopeOfRepresentation": "Jointly",
+                    "family_name": person["full_name"].split()[-1],
+                    "given_name": " ".join(person["full_name"].split()[:-1]),
                     "birth_date": datetime.strptime(person["date_of_birth"], "%d-%m-%Y").strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-                })
-
-            # Parse address
+                }
+                for person in company_data["data"]["authorized_persons"]
+            ]
             address_parts = company_data["data"]["postal_address"].split()
             postal_code = next((part for part in address_parts if len(part) == 6 and part[:4].isdigit()), "")
             
@@ -100,22 +94,21 @@ def issue_credential(credentialConfiguration: str, kvkNumber: str):
         else:
             raise ValueError(f"Unsupported credential configuration: {credentialConfiguration}")
 
-        response = requests.post(url, params=params, json=payload)
-        
-        logger.debug(f"Response status: {response.status_code}")
-        logger.debug(f"Response content: {response.text}")
-        
-        if response.status_code != 200:
-            logger.error(f"Error from minisuomi API: {response.text}")
-            raise Exception(f"API returned status code {response.status_code}")
-        
-        # Return the credential offer URI directly
-        return {"credential_offer_uri": response.text}
-            
+        # Construct the credential offer URL (this can point to an internal or mock endpoint)
+        offer_id = "mockOfferId123"  # Generate a unique ID if necessary
+        credential_offer_url = f"{ISSUER_DOMAIN}/credential_offer?id={offer_id}"
+
+        # Construct the credential offer URI
+        credential_offer_uri = f"openid-credential-offer://?credential_offer_uri={requests.utils.quote(credential_offer_url)}"
+
+        # Return the credential offer URI
+        return {"credential_offer_uri": credential_offer_uri}
+
     except requests.exceptions.RequestException as e:
         logger.error(f"Request error: {str(e)}")
         raise Exception(f"Request failed: {str(e)}")
     except Exception as e:
         logger.error(f"Unexpected error: {str(e)}")
         raise
+
 
