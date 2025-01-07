@@ -101,24 +101,32 @@ def get_credential_offer(id: str):
         # Construct the credential offer metadata
         credential_offer = {
             "credential_issuer": f"{base_url}/issuers/kvk",
-            "credentials": [
-                {
+            "credential_configurations_supported": {
+                "LPIDSdJwt": {
                     "format": "vc+sd-jwt",
-                    "types": ["LegalPerson"],
-                    "credential_definition": {
-                        "type": ["VerifiableCredential", "LegalPersonCredential"]
-                    }
+                    "scope": "LPIDSdJwt",
+                    "cryptographic_binding_methods_supported": ["jwk"],
+                    "credential_signing_alg_values_supported": ["ES256"],
+                    "proof_types_supported": {
+                        "jwt": {
+                            "proof_signing_alg_values_supported": ["ES256"]
+                        }
+                    },
+                    "display": [{
+                        "name": "Legal Person Identifier",
+                        "locale": "en-US",
+                        "logo": {
+                            "uri": "https://example.com/logo.png",
+                            "alt_text": "Legal Person ID logo"
+                        },
+                        "background_color": "#12107c",
+                        "text_color": "#FFFFFF"
+                    }]
                 }
-            ],
+            },
             "grants": {
                 "urn:ietf:params:oauth:grant-type:pre-authorized_code": {
-                    "pre-authorized_code": "mock_pre_authorized_code_123",
-                    # Optional: Require transaction code for additional security
-                    # "tx_code": {
-                    #     "input_mode": "numeric",
-                    #     "length": 6,
-                    #     "description": "Please enter the code sent to your email"
-                    # }
+                    "pre-authorized_code": "mock_pre_authorized_code_123"
                 }
             }
         }
