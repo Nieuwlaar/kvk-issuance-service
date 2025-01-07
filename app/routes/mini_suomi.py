@@ -9,6 +9,9 @@ import logging
 
 router = APIRouter()
 
+# Create a separate router for .well-known endpoints
+well_known_router = APIRouter()
+
 class ProofObject(BaseModel):
     proof_type: str
     jwt: Optional[str] = None
@@ -365,7 +368,7 @@ async def issue_credential_endpoint(
             }
         )
 
-@router.get("/.well-known/jwt-vc-issuer/mini-suomi/issuers/kvk")
+@well_known_router.get("/.well-known/jwt-vc-issuer/mini-suomi/issuers/kvk")
 async def get_jwt_vc_issuer_metadata():
     try:
         issuer_url = f"{mini_suomi.ISSUER_DOMAIN}/mini-suomi/issuers/kvk"
