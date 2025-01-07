@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from io import BytesIO
 from app.services import mini_suomi
 
@@ -101,29 +101,16 @@ def get_credential_offer(id: str):
         # Construct the credential offer metadata
         credential_offer = {
             "credential_issuer": f"{base_url}/issuers/kvk",
-            "credential_configurations_supported": {
-                "LPIDSdJwt": {
-                    "format": "vc+sd-jwt",
-                    "scope": "LPIDSdJwt",
-                    "cryptographic_binding_methods_supported": ["jwk"],
-                    "credential_signing_alg_values_supported": ["ES256"],
-                    "proof_types_supported": {
-                        "jwt": {
-                            "proof_signing_alg_values_supported": ["ES256"]
-                        }
-                    },
-                    "display": [{
-                        "name": "Legal Person Identifier",
-                        "locale": "en-US",
-                        "logo": {
-                            "uri": "https://example.com/logo.png",
-                            "alt_text": "Legal Person ID logo"
-                        },
-                        "background_color": "#12107c",
-                        "text_color": "#FFFFFF"
-                    }]
+            # Add credentials array as required by the spec
+            "credentials": [{
+                "format": "vc+sd-jwt",
+                "types": ["LegalPerson"],
+                "trust_framework": {
+                    "name": "kvk",
+                    "type": "Legal Entity",
+                    "uri": f"{base_url}/issuers/kvk"
                 }
-            },
+            }],
             "grants": {
                 "urn:ietf:params:oauth:grant-type:pre-authorized_code": {
                     "pre-authorized_code": "mock_pre_authorized_code_123"
@@ -131,6 +118,10 @@ def get_credential_offer(id: str):
             }
         }
         
-        return credential_offer
+        # Set correct content type
+        return JSONResponse(
+            content=credential_offer,
+            media_type="application/json"
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
