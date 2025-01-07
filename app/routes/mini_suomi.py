@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Form
 from fastapi.responses import StreamingResponse, JSONResponse
 from io import BytesIO
 from app.services import mini_suomi
+from typing import Optional
 
 router = APIRouter()
 
@@ -221,3 +222,59 @@ def get_oauth_server_metadata():
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/issuers/kvk/token")
+async def token_endpoint(
+    grant_type: str = Form(...),
+    pre_authorized_code: Optional[str] = Form(None, alias="pre-authorized_code"),
+    tx_code: Optional[str] = Form(None),
+    client_id: Optional[str] = Form(None),
+    authorization_details: Optional[str] = Form(None)
+):
+    try:
+        # Validate grant type
+        if grant_type != "urn:ietf:params:oauth:grant-type:pre-authorized_code":
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "error": "unsupported_grant_type",
+                    "error_description": "Only pre-authorized code grant type is supported"
+                }
+            )
+        
+        # Validate pre-authorized code
+        if not pre_authorized_code or pre_authorized_code != "mock_pre_authorized_code_123":
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "error": "invalid_grant",
+                    "error_description": "Invalid or expired pre-authorized code"
+                }
+            )
+            
+        # For now, we'll create a simple response with a mock access token
+        response = {
+            "access_token": "mock_access_token_456",
+            "token_type": "Bearer",
+            "expires_in": 3600,
+            "authorization_details": [{
+                "type": "openid_credential",
+                "credential_configuration_id": "LPIDSdJwt",
+                "credential_identifiers": ["mock_credential_id_789"]
+            }]
+        }
+        
+        return JSONResponse(
+            content=response,
+            media_type="application/json",
+            headers={"Cache-Control": "no-store"}
+        )
+        
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": "server_error",
+                "error_description": str(e)
+            }
+        )
