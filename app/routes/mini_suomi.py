@@ -345,18 +345,19 @@ async def issue_credential_endpoint(
                 }
             )
 
-        # Mock credential issuance
-        logging.info("Generating credential...")
-        mock_credential = "eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.mock_credential_payload.mock_signature"
-        
-        # Construct response
+        # Generate SD-JWT credential
+        mock_sd_jwt = (
+            "eyJ0eXAiOiJzZC1qd3QiLCJhbGciOiJFZERTQSJ9."
+            "eyJfc2QiOlsiZm9vIiwiYmFyIl0sImlzcyI6Imh0dHBzOi8vZXhhbXBsZS5jb20iLCJpYXQiOjE2ODMyOTgyMzF9."
+            "~WyJmb28iLCJiYXIiXQ"
+        )
+
+        # Format response according to SD-JWT VC format
         response = {
-            "credentials": [
-                {
-                    "credential": mock_credential,
-                    "format": "vc+sd-jwt"
-                }
-            ]
+            "format": "vc+sd-jwt",
+            "credential": mock_sd_jwt,
+            "c_nonce": "xyz123",  # Add a nonce for the next interaction
+            "c_nonce_expires_in": 3600
         }
         
         logging.info(f"Sending response: {response}")
@@ -368,7 +369,7 @@ async def issue_credential_endpoint(
 
     except Exception as e:
         logging.error(f"Error in credential issuance: {str(e)}")
-        logging.error(f"Exception details:", exc_info=True)  # This will log the full stack trace
+        logging.error(f"Exception details:", exc_info=True)
         return JSONResponse(
             status_code=500,
             content={
