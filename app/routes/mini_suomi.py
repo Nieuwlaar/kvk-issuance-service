@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Form, Request
 from fastapi.responses import StreamingResponse, JSONResponse
 from io import BytesIO
 from app.services import mini_suomi
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from pydantic import BaseModel
 from fastapi import Header
 import logging
@@ -16,8 +16,8 @@ class ProofObject(BaseModel):
     attestation: Optional[str] = None
 
 class CredentialRequest(BaseModel):
-    credential_identifier: Optional[str] = None
-    credential_configuration_id: Optional[str] = None
+    format: Optional[str] = None
+    types: Optional[List[str]] = None
     proof: Optional[ProofObject] = None
     proofs: Optional[Dict[str, list]] = None
     credential_response_encryption: Optional[Dict[str, Any]] = None
@@ -314,47 +314,26 @@ async def issue_credential_endpoint(
                 content={"error": "invalid_token"},
                 headers={"WWW-Authenticate": "Bearer"}
             )
-        
+
         # Log parsed request
         logging.info(f"Parsed request: {request_body}")
 
-        # Validate request parameters
-        if request_body.credential_identifier and request_body.credential_configuration_id:
+        # Validate format and types
+        if request_body.format != "vc+sd-jwt":
             return JSONResponse(
                 status_code=400,
                 content={
-                    "error": "invalid_credential_request",
-                    "error_description": "Cannot specify both credential_identifier and credential_configuration_id"
-                }
-            )
-            
-        if not request_body.credential_identifier and not request_body.credential_configuration_id:
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "error": "invalid_credential_request",
-                    "error_description": "Must specify either credential_identifier or credential_configuration_id"
-                }
-            )
-            
-        # Validate proof (if required)
-        if request_body.proof and request_body.proofs:
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "error": "invalid_proof",
-                    "error_description": "Cannot specify both proof and proofs"
+                    "error": "unsupported_credential_format",
+                    "error_description": "Only vc+sd-jwt format is supported"
                 }
             )
 
-        # For now, let's support only the LPIDSdJwt credential
-        credential_type = request_body.credential_configuration_id or "LPIDSdJwt"
-        if credential_type != "LPIDSdJwt":
+        if not request_body.types or "LegalPerson" not in request_body.types:
             return JSONResponse(
                 status_code=400,
                 content={
                     "error": "unsupported_credential_type",
-                    "error_description": "Only LPIDSdJwt credential type is supported"
+                    "error_description": "LegalPerson type is required"
                 }
             )
 
@@ -377,6 +356,7 @@ async def issue_credential_endpoint(
         )
 
     except Exception as e:
+        logging.error(f"Error processing request: {str(e)}")
         return JSONResponse(
             status_code=400,
             content={
