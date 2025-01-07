@@ -13,7 +13,9 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
-# Register the routers
-app.include_router(base_routes.router)
+# Mount well-known routes at root level
 app.include_router(well_known_routes.router)
+
+# Mount other routes with their prefixes
+app.include_router(base_routes.router)
 app.include_router(mini_suomi.router, prefix="/mini-suomi")
