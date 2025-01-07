@@ -184,3 +184,40 @@ def get_credential_issuer_metadata():
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/issuers/kvk/.well-known/oauth-authorization-server")
+def get_oauth_server_metadata():
+    try:
+        base_url = f"{mini_suomi.ISSUER_DOMAIN}/mini-suomi"
+        issuer_url = f"{base_url}/issuers/kvk"
+        
+        metadata = {
+            "issuer": issuer_url,
+            "authorization_endpoint": f"{issuer_url}/authorize",
+            "token_endpoint": f"{issuer_url}/token",
+            "jwks_uri": f"{issuer_url}/jwks.json",
+            "response_types_supported": ["code"],
+            "grant_types_supported": ["authorization_code", "urn:ietf:params:oauth:grant-type:pre-authorized_code"],
+            "token_endpoint_auth_methods_supported": ["none"],
+            "credential_endpoint": f"{issuer_url}/openid4vci/issue",
+            "credential_configurations_supported": {
+                "LPIDSdJwt": {
+                    "format": "vc+sd-jwt",
+                    "cryptographic_binding_methods_supported": ["jwk"],
+                    "credential_signing_alg_values_supported": ["ES256"],
+                    "proof_types_supported": {
+                        "jwt": {
+                            "proof_signing_alg_values_supported": ["ES256"]
+                        }
+                    }
+                }
+            }
+        }
+        
+        return JSONResponse(
+            content=metadata,
+            media_type="application/json",
+            headers={"Content-Language": "en-US"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
