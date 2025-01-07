@@ -96,7 +96,7 @@ def issue_credential(credentialConfiguration: str, kvkNumber: str):
 
         # Construct the credential offer URL (this can point to an internal or mock endpoint)
         offer_id = "mockOfferId123"  # Generate a unique ID if necessary
-        credential_offer_url = f"{ISSUER_DOMAIN}/credential_offer?id={offer_id}"
+        credential_offer_url = f"{ISSUER_DOMAIN}mini-suomi/credential_offer?id={offer_id}"
 
         # Construct the credential offer URI
         credential_offer_uri = f"openid-credential-offer://?credential_offer_uri={requests.utils.quote(credential_offer_url)}"
