@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import base_routes, mini_suomi
+from app.routes import base_routes, mini_suomi, well_known_routes
 
 app = FastAPI()
 
@@ -15,4 +15,5 @@ app.add_middleware(
 
 # Register the routers
 app.include_router(base_routes.router)
+app.include_router(well_known_routes.router)
 app.include_router(mini_suomi.router, prefix="/mini-suomi")
