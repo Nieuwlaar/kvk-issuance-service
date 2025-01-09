@@ -166,7 +166,7 @@ def generate_credential_jwt(credential_type: str, kvk_number: str) -> str:
             postal_code = next((part for part in address_parts if len(part) == 6 and part[:4].isdigit()), "")
             
             jwt_payload = {
-                "iss": company_data["metadata"]["issuer_id"],
+                "iss": "https://ewc-issuer.nieuwlaar.com/.well-known/jwt-vc-issuer/mini-suomi/issuers/kvk",
                 "sub": company_data["data"]["id"],
                 "iat": int(now.timestamp()),
                 "exp": int(one_year_from_now.timestamp()),
