@@ -205,26 +205,30 @@ def generate_credential_jwt(credential_type: str, kvk_number: str) -> str:
             raise ValueError(f"Unsupported credential type: {credential_type}")
 
         # Common JWT header
-        header = {
+        headers = {
             "typ": "sd-jwt",
             "alg": "ES256",
-            "kid": "mini-suomi-signer-key-1"
+            "kid": "authentication-key"
         }
 
-        # TODO: Replace with actual private key
-        # For now, using a mock key (you'll need to replace this with your actual key)
-        mock_private_key = """
-        -----BEGIN PRIVATE KEY-----
-        MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgkAP+MAxRTy4F77xl+9unD+9IWfneEMC7j6E4WdSEdxKhRANCAAS+JnDf0fnT3FG9lw0e0bDyLEV57FoXgtrVlAtlRZNRS8nTdaNC0AHT09cL/tG+GATbJkKXF835iColIYcuNjF8
-        -----END PRIVATE KEY-----
-        """
+        # Hardcoded private key
+        private_key = {
+            "kty": "EC",
+            "crv": "P-256",
+            "x": "viZw39H509xRvZcNHtGw8ixFeexaF4La1ZQLZUWTUUs",
+            "y": "ydN1o0LQAdPT1wv-0b4YBNsmQpcXzfmIKiUhhy42MXw",
+            "alg": "ES256",
+            "kid": "authentication-key",
+            "d": "kAP-MAxRTy4F77xl-9unD-9IWfneEMC7j6E4WdSEdxI",
+            "use": "sig"
+        }
 
         # Generate the JWT
         credential_jwt = jwt.encode(
             claims=jwt_payload,
-            key=mock_private_key,
+            key=private_key,
             algorithm="ES256",
-            headers=header
+            headers=headers
         )
 
         return credential_jwt
