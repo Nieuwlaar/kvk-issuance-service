@@ -206,9 +206,19 @@ def generate_credential_jwt(credential_type: str, kvk_number: str) -> str:
 
         # Common JWT header
         headers = {
-            "typ": "sd-jwt",
+            "typ": "vc+sd-jwt",
             "alg": "ES256",
-            "kid": "authentication-key"
+            "kid": "authentication-key",
+            "jwk": {
+                "kty": "EC",
+                "crv": "P-256",
+                "x": "viZw39H509xRvZcNHtGw8ixFeexaF4La1ZQLZUWTUUs",
+                "y": "ydN1o0LQAdPT1wv-0b4YBNsmQpcXzfmIKiUhhy42MXw",
+                "alg": "ES256",
+                "kid": "authentication-key",
+                "d": "kAP-MAxRTy4F77xl-9unD-9IWfneEMC7j6E4WdSEdxI",
+                "use": "sig"
+            }
         }
 
         # Hardcoded private key
