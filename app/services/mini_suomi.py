@@ -223,6 +223,11 @@ def generate_credential_jwt(credential_type: str, kvk_number: str) -> str:
             "use": "sig"
         }
 
+        # Log the components before encoding
+        logging.info("=== JWT Generation Details ===")
+        logging.info(f"Headers: {headers}")
+        logging.info(f"Payload: {jwt_payload}")
+        
         # Generate the JWT
         credential_jwt = jwt.encode(
             claims=jwt_payload,
@@ -230,6 +235,32 @@ def generate_credential_jwt(credential_type: str, kvk_number: str) -> str:
             algorithm="ES256",
             headers=headers
         )
+
+        # Log the generated JWT
+        logging.info("=== Generated JWT ===")
+        logging.info(f"JWT: {credential_jwt}")
+        
+        # Verify the JWT (for debugging)
+        try:
+            public_key = {
+                "kty": "EC",
+                "crv": "P-256",
+                "x": "viZw39H509xRvZcNHtGw8ixFeexaF4La1ZQLZUWTUUs",
+                "y": "ydN1o0LQAdPT1wv-0b4YBNsmQpcXzfmIKiUhhy42MXw",
+                "alg": "ES256",
+                "kid": "authentication-key",
+                "use": "sig"
+            }
+            decoded = jwt.decode(
+                credential_jwt,
+                public_key,
+                algorithms=["ES256"]
+            )
+            logging.info("=== JWT Verification ===")
+            logging.info("JWT verification successful")
+            logging.info(f"Decoded payload: {decoded}")
+        except Exception as e:
+            logging.error(f"JWT verification failed: {str(e)}")
 
         return credential_jwt
 
