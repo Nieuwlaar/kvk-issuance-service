@@ -48,6 +48,15 @@ def issue_credential(credentialConfiguration: str, kvkNumber: str):
                 "authentic_source_id": lpid_data["metadata"]["issuer_id"],
                 "authentic_source_name": "Kamer van Koophandel"
             }
+            offer_id = "mockOfferId123"  # Generate a unique ID if necessary
+            credential_offer_url = f"{ISSUER_DOMAIN}/mini-suomi/credential_offer?id={offer_id}"
+
+            # Construct the credential offer URI
+            credential_offer_uri = f"openid-credential-offer://?credential_offer_uri={requests.utils.quote(credential_offer_url)}"
+
+            # Return the credential offer URI
+            return {"credential_offer_uri": credential_offer_uri}
+        
         elif credentialConfiguration == "EUCCSdJwt":
             company_data = KVKBevoegdhedenAPI.get_company_certificate(kvkNumber)
             legal_representatives = [
@@ -95,18 +104,19 @@ def issue_credential(credentialConfiguration: str, kvkNumber: str):
                 "authentic_source_id": company_data["metadata"]["issuer_id"],
                 "authentic_source_name": "Kamer van Koophandel"
             }
+                    # Construct the credential offer URL (this can point to an internal or mock endpoint)
+            offer_id = "mockOfferId124"  # Generate a unique ID if necessary
+            credential_offer_url = f"{ISSUER_DOMAIN}/mini-suomi/credential_offer?id={offer_id}"
+
+            # Construct the credential offer URI
+            credential_offer_uri = f"openid-credential-offer://?credential_offer_uri={requests.utils.quote(credential_offer_url)}"
+
+            # Return the credential offer URI
+            return {"credential_offer_uri": credential_offer_uri}
         else:
             raise ValueError(f"Unsupported credential configuration: {credentialConfiguration}")
 
-        # Construct the credential offer URL (this can point to an internal or mock endpoint)
-        offer_id = "mockOfferId123"  # Generate a unique ID if necessary
-        credential_offer_url = f"{ISSUER_DOMAIN}/mini-suomi/credential_offer?id={offer_id}"
 
-        # Construct the credential offer URI
-        credential_offer_uri = f"openid-credential-offer://?credential_offer_uri={requests.utils.quote(credential_offer_url)}"
-
-        # Return the credential offer URI
-        return {"credential_offer_uri": credential_offer_uri}
 
     except requests.exceptions.RequestException as e:
         logger.error(f"Request error: {str(e)}")
