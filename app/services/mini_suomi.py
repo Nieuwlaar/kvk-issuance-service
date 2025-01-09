@@ -123,8 +123,11 @@ def generate_credential_jwt(credential_type: str, kvk_number: str) -> str:
         if credential_type == "LPIDSdJwt":
             lpid_data = KVKBevoegdhedenAPI.get_lpid(kvk_number)
             
-            # Create disclosures for each claim
-            disclosures = {
+            # Create disclosure objects with salt
+            disclosures = []
+            sd_hashes = []
+            
+            claims = {
                 "legal_person_id": lpid_data["data"]["id"],
                 "legal_person_name": lpid_data["data"]["legal_person_name"],
                 "issuer_id": lpid_data["metadata"]["issuer_id"],
@@ -137,12 +140,22 @@ def generate_credential_jwt(credential_type: str, kvk_number: str) -> str:
                 "authentic_source_name": lpid_data["metadata"]["issuing_authority_name"]
             }
 
-            # Generate _sd array using SHA-256 hashes of the disclosures
-            sd_hashes = []
-            for key, value in disclosures.items():
-                disclosure_data = json.dumps(value, separators=(',', ':'))
-                hash_obj = hashlib.sha256(disclosure_data.encode('utf-8'))
-                sd_hashes.append(base64.urlsafe_b64encode(hash_obj.digest()).decode('utf-8').rstrip('='))
+            # Generate salted disclosures for each claim
+            for key, value in claims.items():
+                # Generate random salt
+                salt = base64.urlsafe_b64encode(os.urandom(16)).decode('utf-8').rstrip('=')
+                
+                # Create disclosure array [salt, key, value]
+                disclosure = [salt, key, value]
+                disclosure_str = json.dumps(disclosure, separators=(',', ':'))
+                
+                # Add to disclosures list
+                disclosures.append(disclosure_str)
+                
+                # Generate hash for _sd array
+                hash_obj = hashlib.sha256(disclosure_str.encode('utf-8'))
+                sd_hash = base64.urlsafe_b64encode(hash_obj.digest()).decode('utf-8').rstrip('=')
+                sd_hashes.append(sd_hash)
 
             # JWT header with embedded JWK
             headers = {
@@ -160,26 +173,23 @@ def generate_credential_jwt(credential_type: str, kvk_number: str) -> str:
                 }
             }
 
-            # Generate a random key pair for holder binding
-            holder_key = {
-                "kty": "EC",
-                "x": "rYmxB0Pftb6Vg2hqDw5bt9ZmunVU8cr5Q0YAKlkIXmQ",
-                "y": "QkAPrZ5JQUPBKnodOefFDJRYu54hk-6toTFngyEAEP8",
-                "crv": "P-256",
-                "kid": "authentication-key",
-                "alg": "ES256"
-            }
-
             # JWT payload
             jwt_payload = {
                 "iat": int(now.timestamp()),
-                "nbf": int(now.timestamp()) - 2963,  # Current time minus ~49 minutes
+                "nbf": int(now.timestamp()) - 2963,
                 "vct": "LPID",
                 "iss": "https://test.minisuomi.fi/api/issuers/kvk",
                 "_sd": sd_hashes,
                 "_sd_alg": "sha-256",
                 "cnf": {
-                    "jwk": holder_key
+                    "jwk": {
+                        "kty": "EC",
+                        "x": "rYmxB0Pftb6Vg2hqDw5bt9ZmunVU8cr5Q0YAKlkIXmQ",
+                        "y": "QkAPrZ5JQUPBKnodOefFDJRYu54hk-6toTFngyEAEP8",
+                        "crv": "P-256",
+                        "kid": "authentication-key",
+                        "alg": "ES256"
+                    }
                 },
                 "termsOfUse": []
             }
@@ -204,14 +214,16 @@ def generate_credential_jwt(credential_type: str, kvk_number: str) -> str:
                 headers=headers
             )
 
-            # Log the components
+            # Combine JWT and disclosures
+            combined_token = credential_jwt + "~" + "~".join(disclosures)
+
             logging.info("=== SD-JWT Generation Details ===")
             logging.info(f"Headers: {headers}")
             logging.info(f"Payload: {jwt_payload}")
             logging.info(f"Disclosures: {disclosures}")
-            logging.info(f"Generated JWT: {credential_jwt}")
+            logging.info(f"Generated Combined Token: {combined_token}")
 
-            return credential_jwt
+            return combined_token
 
     except Exception as e:
         logging.error(f"Error generating credential JWT: {str(e)}")
