@@ -444,13 +444,13 @@ async def issue_credential_endpoint(
                 }
             )
 
-        if not request_body.types or "LPIDSdJwt" not in request_body.types:
+        if not request_body.types or not any(cred_type in request_body.types for cred_type in ["LPIDSdJwt", "EUCCSdJwt"]):
             logging.error(f"Invalid types: {request_body.types}")
             return JSONResponse(
                 status_code=400,
                 content={
                     "error": "unsupported_credential_type",
-                    "error_description": "LPIDSdJwt type is required"
+                    "error_description": "Either LPIDSdJwt or EUCCSdJwt type is required"
                 }
             )
 
