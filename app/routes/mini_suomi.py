@@ -193,85 +193,85 @@ def get_credential_issuer_metadata():
                         }
                     ]
                 },
-                # "EUCCSdJwt": {
-                #     "format": "vc+sd-jwt",
-                #     "scope": "EUCCSdJwt",
-                #     "cryptographic_binding_methods_supported": ["jwk"],
-                #     "credential_signing_alg_values_supported": ["ES256"],
-                #     "proof_types_supported": {
-                #         "jwt": {
-                #             "proof_signing_alg_values_supported": ["ES256"]
-                #         }
-                #     },
-                #     "display": [{
-                #         "name": "EU Company Certificate",
-                #         "locale": "en-US",
-                #         "logo": {
-                #             "uri": "https://example.com/logo.png",
-                #             "alt_text": "EU Company Certificate logo"
-                #         },
-                #         "background_color": "#12107c",
-                #         "text_color": "#FFFFFF"
-                #     }],
-                #     "claims": [
-                #         {
-                #             "path": ["legalName"],
-                #             "display": [{
-                #                 "name": "Legal Name",
-                #                 "locale": "en-US"
-                #             }]
-                #         },
-                #         {
-                #             "path": ["legalFormType"],
-                #             "display": [{
-                #                 "name": "Legal Form",
-                #                 "locale": "en-US"
-                #             }]
-                #         },
-                #         {
-                #             "path": ["legalIdentifier"],
-                #             "display": [{
-                #                 "name": "Legal Identifier",
-                #                 "locale": "en-US"
-                #             }]
-                #         },
-                #         {
-                #             "path": ["registeredAddress"],
-                #             "display": [{
-                #                 "name": "Registered Address",
-                #                 "locale": "en-US"
-                #             }]
-                #         },
-                #         {
-                #             "path": ["registrationDate"],
-                #             "display": [{
-                #                 "name": "Registration Date",
-                #                 "locale": "en-US"
-                #             }]
-                #         },
-                #         {
-                #             "path": ["legalEntityStatus"],
-                #             "display": [{
-                #                 "name": "Legal Entity Status",
-                #                 "locale": "en-US"
-                #             }]
-                #         },
-                #         {
-                #             "path": ["legalRepresentative"],
-                #             "display": [{
-                #                 "name": "Legal Representatives",
-                #                 "locale": "en-US"
-                #             }]
-                #         },
-                #         {
-                #             "path": ["contactPoint"],
-                #             "display": [{
-                #                 "name": "Contact Information",
-                #                 "locale": "en-US"
-                #             }]
-                #         }
-                #     ]
-                # }
+                "EUCCSdJwt": {
+                    "format": "vc+sd-jwt",
+                    "scope": "EUCCSdJwt",
+                    "cryptographic_binding_methods_supported": ["jwk"],
+                    "credential_signing_alg_values_supported": ["ES256"],
+                    "proof_types_supported": {
+                        "jwt": {
+                            "proof_signing_alg_values_supported": ["ES256"]
+                        }
+                    },
+                    "display": [{
+                        "name": "EU Company Certificate",
+                        "locale": "en-US",
+                        "logo": {
+                            "uri": "https://example.com/logo.png",
+                            "alt_text": "EU Company Certificate logo"
+                        },
+                        "background_color": "#12107c",
+                        "text_color": "#FFFFFF"
+                    }],
+                    "claims": [
+                        {
+                            "path": ["legalName"],
+                            "display": [{
+                                "name": "Legal Name",
+                                "locale": "en-US"
+                            }]
+                        },
+                        {
+                            "path": ["legalFormType"],
+                            "display": [{
+                                "name": "Legal Form",
+                                "locale": "en-US"
+                            }]
+                        },
+                        {
+                            "path": ["legalIdentifier"],
+                            "display": [{
+                                "name": "Legal Identifier",
+                                "locale": "en-US"
+                            }]
+                        },
+                        {
+                            "path": ["registeredAddress"],
+                            "display": [{
+                                "name": "Registered Address",
+                                "locale": "en-US"
+                            }]
+                        },
+                        {
+                            "path": ["registrationDate"],
+                            "display": [{
+                                "name": "Registration Date",
+                                "locale": "en-US"
+                            }]
+                        },
+                        {
+                            "path": ["legalEntityStatus"],
+                            "display": [{
+                                "name": "Legal Entity Status",
+                                "locale": "en-US"
+                            }]
+                        },
+                        {
+                            "path": ["legalRepresentative"],
+                            "display": [{
+                                "name": "Legal Representatives",
+                                "locale": "en-US"
+                            }]
+                        },
+                        {
+                            "path": ["contactPoint"],
+                            "display": [{
+                                "name": "Contact Information",
+                                "locale": "en-US"
+                            }]
+                        }
+                    ]
+                }
             }
         }
         
