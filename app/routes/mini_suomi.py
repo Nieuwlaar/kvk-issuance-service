@@ -298,10 +298,8 @@ async def token_endpoint(
             }
         )
 
-@router.post("/issuers/kvk/openid4vci/issue/{credential_type}/{kvk_number}")
+@router.post("/issuers/kvk/openid4vci/issue")
 async def issue_credential_endpoint(
-    credential_type: str,
-    kvk_number: str,
     request_body: CredentialRequest,
     request: Request,
     authorization: str = Header(None)
@@ -349,8 +347,8 @@ async def issue_credential_endpoint(
 
         # Generate actual JWT credential
         credential_jwt = mini_suomi.generate_credential_jwt(
-            credential_type,  # or "EUCCSdJwt" based on request
-            kvk_number  # Get this from the request or context
+            credential_type="LPIDSdJwt",  # or "EUCCSdJwt" based on request
+            kvk_number="90000011"  # Get this from the request or context
         )
 
         # Format response
