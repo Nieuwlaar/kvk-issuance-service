@@ -113,8 +113,7 @@ def get_credential_offer(id: str):
     try:
         # For now, only handle the mock offer ID
         if id == "mockOfferId123":
-            
-            
+
             # Get base URL from environment
             base_url = f"{mini_suomi.ISSUER_DOMAIN}/mini-suomi"
             
@@ -143,7 +142,7 @@ def get_credential_offer(id: str):
                 content=credential_offer,
                 media_type="application/json"
             )
-        elif id == "mockOfferId124":
+        if id == "mockOfferId124":
             # Get base URL from environment
             base_url = f"{mini_suomi.ISSUER_DOMAIN}/mini-suomi"
             
