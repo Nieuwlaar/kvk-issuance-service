@@ -142,6 +142,9 @@ def generate_credential_jwt(credential_type: str, kvk_number: str) -> str:
 
             # Generate salted disclosures for each claim
             for key, value in claims.items():
+                # Log each claim being processed
+                logging.info(f"Processing claim: {key} with value: {value}")
+                
                 # Generate random salt
                 salt = base64.urlsafe_b64encode(os.urandom(16)).decode('utf-8').rstrip('=')
                 
@@ -154,6 +157,11 @@ def generate_credential_jwt(credential_type: str, kvk_number: str) -> str:
                     disclosure_json.encode('utf-8')
                 ).decode('utf-8').rstrip('=')
                 
+                # Log the disclosure details
+                logging.info(f"Generated disclosure for {key}:")
+                logging.info(f"  Raw disclosure: {disclosure}")
+                logging.info(f"  Encoded disclosure: {disclosure_b64}")
+                
                 # Add encoded disclosure to list
                 disclosures.append(disclosure_b64)
                 
@@ -161,6 +169,17 @@ def generate_credential_jwt(credential_type: str, kvk_number: str) -> str:
                 hash_obj = hashlib.sha256(disclosure_json.encode('utf-8'))
                 sd_hash = base64.urlsafe_b64encode(hash_obj.digest()).decode('utf-8').rstrip('=')
                 sd_hashes.append(sd_hash)
+                
+                # Log the hash
+                logging.info(f"  Generated hash: {sd_hash}")
+
+            # Log final arrays
+            logging.info("=== Final Arrays ===")
+            logging.info(f"Number of claims: {len(claims)}")
+            logging.info(f"Number of disclosures: {len(disclosures)}")
+            logging.info(f"Number of hashes: {len(sd_hashes)}")
+            logging.info(f"All claims keys: {list(claims.keys())}")
+            logging.info(f"All disclosure decoded: {[json.loads(base64.urlsafe_b64decode(d + '==').decode('utf-8')) for d in disclosures]}")
 
             # JWT header with embedded JWK
             headers = {
