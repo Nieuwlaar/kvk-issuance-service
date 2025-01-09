@@ -126,7 +126,7 @@ def generate_credential_jwt(credential_type: str, kvk_number: str) -> str:
             lpid_data = KVKBevoegdhedenAPI.get_lpid(kvk_number)
             
             jwt_payload = {
-                "iss": lpid_data["metadata"]["issuer_id"],
+                "iss": "https://ewc-issuer.nieuwlaar.com/.well-known/jwt-vc-issuer/mini-suomi/issuers/kvk",
                 "sub": lpid_data["data"]["id"],
                 "iat": int(now.timestamp()),
                 "exp": int(one_year_from_now.timestamp()),
