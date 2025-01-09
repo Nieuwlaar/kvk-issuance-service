@@ -123,7 +123,7 @@ def get_credential_offer(id: str):
                 # Add credentials array as required by the spec
                 "credentials": [{
                     "format": "vc+sd-jwt",
-                    "types": ["LPIDSdJwt", "EUCCSdJwt"],
+                    "types": ["LPIDSdJwt"],
                     "trust_framework": {
                         "name": "kvk",
                         "type": "Legal Entity",
@@ -152,7 +152,7 @@ def get_credential_offer(id: str):
                 # Add credentials array as required by the spec
                 "credentials": [{
                     "format": "vc+sd-jwt",
-                    "types": ["LPIDSdJwt", "EUCCSdJwt"],
+                    "types": ["EUCCSdJwt"],
                     "trust_framework": {
                         "name": "kvk",
                         "type": "Legal Entity",
