@@ -183,7 +183,7 @@ def generate_credential_jwt(credential_type: str, kvk_number: str) -> str:
                 "iat": int(now.timestamp()),
                 "nbf": int(now.timestamp()) - 2963,
                 "vct": "LPID",
-                "iss": "https://test.minisuomi.fi/api/issuers/kvk",
+                "iss": "https://https://ewc-issuer.nieuwlaar.com/.well-known/jwt-vc-issuer/mini-suomi/issuers/kvk",
                 "_sd": sd_hashes,
                 "_sd_alg": "sha-256",
                 "cnf": {
