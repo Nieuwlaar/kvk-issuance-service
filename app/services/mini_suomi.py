@@ -147,13 +147,18 @@ def generate_credential_jwt(credential_type: str, kvk_number: str) -> str:
                 
                 # Create disclosure array [salt, key, value]
                 disclosure = [salt, key, value]
-                disclosure_str = json.dumps(disclosure, separators=(',', ':'))
                 
-                # Add to disclosures list
-                disclosures.append(disclosure_str)
+                # Convert to JSON and then base64url encode
+                disclosure_json = json.dumps(disclosure, separators=(',', ':'))
+                disclosure_b64 = base64.urlsafe_b64encode(
+                    disclosure_json.encode('utf-8')
+                ).decode('utf-8').rstrip('=')
+                
+                # Add encoded disclosure to list
+                disclosures.append(disclosure_b64)
                 
                 # Generate hash for _sd array
-                hash_obj = hashlib.sha256(disclosure_str.encode('utf-8'))
+                hash_obj = hashlib.sha256(disclosure_json.encode('utf-8'))
                 sd_hash = base64.urlsafe_b64encode(hash_obj.digest()).decode('utf-8').rstrip('=')
                 sd_hashes.append(sd_hash)
 
@@ -214,13 +219,13 @@ def generate_credential_jwt(credential_type: str, kvk_number: str) -> str:
                 headers=headers
             )
 
-            # Combine JWT and disclosures
+            # Combine JWT and base64url-encoded disclosures
             combined_token = credential_jwt + "~" + "~".join(disclosures)
 
             logging.info("=== SD-JWT Generation Details ===")
             logging.info(f"Headers: {headers}")
             logging.info(f"Payload: {jwt_payload}")
-            logging.info(f"Disclosures: {disclosures}")
+            logging.info(f"Disclosures (decoded): {[json.loads(base64.urlsafe_b64decode(d + '==').decode('utf-8')) for d in disclosures]}")
             logging.info(f"Generated Combined Token: {combined_token}")
 
             return combined_token
