@@ -444,7 +444,7 @@ async def issue_credential_endpoint(
                 }
             )
 
-        if not request_body.types or "LPIDSdJwt" or "EUCCSdJwt" not in request_body.types:
+        if not request_body.types or "LPIDSdJwt" not in request_body.types:
             logging.error(f"Invalid types: {request_body.types}")
             return JSONResponse(
                 status_code=400,
