@@ -112,37 +112,68 @@ def get_jwks():
 def get_credential_offer(id: str):
     try:
         # For now, only handle the mock offer ID
-        if id != "mockOfferId123":
-            raise HTTPException(status_code=404, detail="Credential offer not found")
+        if id == "mockOfferId123":
             
-        # Get base URL from environment
-        base_url = f"{mini_suomi.ISSUER_DOMAIN}/mini-suomi"
-        
-        # Construct the credential offer metadata
-        credential_offer = {
-            "credential_issuer": f"{base_url}/issuers/kvk",
-            # Add credentials array as required by the spec
-            "credentials": [{
-                "format": "vc+sd-jwt",
-                "types": ["LPIDSdJwt"],
-                "trust_framework": {
-                    "name": "kvk",
-                    "type": "Legal Entity",
-                    "uri": f"{base_url}/issuers/kvk"
-                }
-            }],
-            "grants": {
-                "urn:ietf:params:oauth:grant-type:pre-authorized_code": {
-                    "pre-authorized_code": "mock_pre_authorized_code_123"
+            
+            # Get base URL from environment
+            base_url = f"{mini_suomi.ISSUER_DOMAIN}/mini-suomi"
+            
+            # Construct the credential offer metadata
+            credential_offer = {
+                "credential_issuer": f"{base_url}/issuers/kvk",
+                # Add credentials array as required by the spec
+                "credentials": [{
+                    "format": "vc+sd-jwt",
+                    "types": ["LPIDSdJwt"],
+                    "trust_framework": {
+                        "name": "kvk",
+                        "type": "Legal Entity",
+                        "uri": f"{base_url}/issuers/kvk"
+                    }
+                }],
+                "grants": {
+                    "urn:ietf:params:oauth:grant-type:pre-authorized_code": {
+                        "pre-authorized_code": "mock_pre_authorized_code_123"
+                    }
                 }
             }
-        }
-        
-        # Set correct content type
-        return JSONResponse(
-            content=credential_offer,
-            media_type="application/json"
-        )
+            
+            # Set correct content type
+            return JSONResponse(
+                content=credential_offer,
+                media_type="application/json"
+            )
+        elif id == "mockOfferId124":
+            # Get base URL from environment
+            base_url = f"{mini_suomi.ISSUER_DOMAIN}/mini-suomi"
+            
+            # Construct the credential offer metadata
+            credential_offer = {
+                "credential_issuer": f"{base_url}/issuers/kvk",
+                # Add credentials array as required by the spec
+                "credentials": [{
+                    "format": "vc+sd-jwt",
+                    "types": ["EUCCSdJwt"],
+                    "trust_framework": {
+                        "name": "kvk",
+                        "type": "Legal Entity",
+                        "uri": f"{base_url}/issuers/kvk"
+                    }
+                }],
+                "grants": {
+                    "urn:ietf:params:oauth:grant-type:pre-authorized_code": {
+                        "pre-authorized_code": "mock_pre_authorized_code_123"
+                    }
+                }
+            }
+            
+            # Set correct content type
+            return JSONResponse(
+                content=credential_offer,
+                media_type="application/json"
+            )
+        else:
+            raise HTTPException(status_code=404, detail="Credential offer not found")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
