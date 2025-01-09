@@ -46,7 +46,7 @@ def issue_credential(credentialConfiguration: str, kvkNumber: str):
                 "expire_date": one_year_from_now.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
                 "credential_status": "active",
                 "authentic_source_id": lpid_data["metadata"]["issuer_id"],
-                "authentic_source_name": lpid_data["metadata"]["issuing_authority_name"]
+                "authentic_source_name": "Kamer van Koophandel"
             }
         elif credentialConfiguration == "EUCCSdJwt":
             company_data = KVKBevoegdhedenAPI.get_company_certificate(kvkNumber)
@@ -93,7 +93,7 @@ def issue_credential(credentialConfiguration: str, kvkNumber: str):
                 "issuance_date": now.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
                 "expire_date": one_year_from_now.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
                 "authentic_source_id": company_data["metadata"]["issuer_id"],
-                "authentic_source_name": company_data["metadata"]["issuing_authority_name"]
+                "authentic_source_name": "Kamer van Koophandel"
             }
         else:
             raise ValueError(f"Unsupported credential configuration: {credentialConfiguration}")
