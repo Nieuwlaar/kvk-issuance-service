@@ -14,7 +14,7 @@ private_key = {
 
 # JWT payload
 payload = {
-    "iss": "https://example.com",  # Issuer
+    "iss": "https://example.commmm",  # Issuer
     "sub": "user-id",             # Subject (user ID)
     "aud": "https://test.minisuomi.fi/api",  # Audience (API endpoint)
     "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=1),  # Expiration time
