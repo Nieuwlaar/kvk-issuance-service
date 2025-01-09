@@ -260,149 +260,149 @@ def generate_credential_jwt(credential_type: str, kvk_number: str) -> str:
 
             return combined_token
 
-        # elif credential_type == "EUCCSdJwt":
-        #     company_data = KVKBevoegdhedenAPI.get_company_certificate(kvk_number)
+        elif credential_type == "EUCCSdJwt":
+            company_data = KVKBevoegdhedenAPI.get_company_certificate(kvk_number)
             
-        #     # Create disclosure objects with salt
-        #     disclosures = []
-        #     sd_hashes = []
+            # Create disclosure objects with salt
+            disclosures = []
+            sd_hashes = []
             
-        #     # Prepare legal representatives data
-        #     legal_representatives = [
-        #         {
-        #             "role": "J",
-        #             "legalEntityId": company_data["data"]["registration_number"],
-        #             "scopeOfRepresentation": "Jointly",
-        #             "family_name": person["full_name"].split()[-1],
-        #             "given_name": " ".join(person["full_name"].split()[:-1]),
-        #             "birth_date": datetime.strptime(person["date_of_birth"], "%d-%m-%Y").strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-        #         }
-        #         for person in company_data["data"]["authorized_persons"]
-        #     ]
+            # Prepare legal representatives data
+            legal_representatives = [
+                {
+                    "role": "J",
+                    "legalEntityId": company_data["data"]["registration_number"],
+                    "scopeOfRepresentation": "Jointly",
+                    "family_name": person["full_name"].split()[-1],
+                    "given_name": " ".join(person["full_name"].split()[:-1]),
+                    "birth_date": datetime.strptime(person["date_of_birth"], "%d-%m-%Y").strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+                }
+                for person in company_data["data"]["authorized_persons"]
+            ]
 
-        #     # Parse address
-        #     address_parts = company_data["data"]["postal_address"].split()
-        #     postal_code = next((part for part in address_parts if len(part) == 6 and part[:4].isdigit()), "")
-        #     post_name = address_parts[-1] if address_parts else ""
-        #     thoroughfare = " ".join(address_parts[:-1]) if address_parts else ""
+            # Parse address
+            address_parts = company_data["data"]["postal_address"].split()
+            postal_code = next((part for part in address_parts if len(part) == 6 and part[:4].isdigit()), "")
+            post_name = address_parts[-1] if address_parts else ""
+            thoroughfare = " ".join(address_parts[:-1]) if address_parts else ""
 
-        #     # Prepare claims
-        #     claims = {
-        #         "legalName": company_data["data"]["legal_person_name"],
-        #         "legalFormType": company_data["data"]["legal_form"],
-        #         "legalIdentifier": company_data["data"]["id"],
-        #         "registeredAddress": {
-        #             "post_code": postal_code,
-        #             "post_name": post_name,
-        #             "thoroughfare": thoroughfare
-        #         },
-        #         "postalAddress": {
-        #             "post_code": postal_code,
-        #             "post_name": post_name,
-        #             "thoroughfare": thoroughfare
-        #         },
-        #         "registrationDate": datetime.strptime(company_data["data"]["date_of_registration"], "%d-%m-%Y").strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
-        #         "shareCapital": None,
-        #         "legalEntityStatus": "active",
-        #         "legalRepresentative": legal_representatives,
-        #         "legalEntityActivity": [{"code": "", "businessDescription": ""}],
-        #         "contactPoint": {
-        #             "contactPage": "",
-        #             "hasEmail": company_data["data"]["electronic_address"],
-        #             "hasTelephone": ""
-        #         },
-        #         "issuer_id": company_data["metadata"]["issuer_id"],
-        #         "issuer_name": company_data["metadata"]["issuing_authority_name"],
-        #         "issuer_country": company_data["metadata"]["issuing_country"],
-        #         "issuance_date": now.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
-        #         "expire_date": one_year_from_now.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
-        #         "authentic_source_id": company_data["metadata"]["issuer_id"],
-        #         "authentic_source_name": "Kamer van Koophandel"
-        #     }
+            # Prepare claims
+            claims = {
+                "legalName": company_data["data"]["legal_person_name"],
+                "legalFormType": company_data["data"]["legal_form"],
+                "legalIdentifier": company_data["data"]["id"],
+                "registeredAddress": {
+                    "post_code": postal_code,
+                    "post_name": post_name,
+                    "thoroughfare": thoroughfare
+                },
+                "postalAddress": {
+                    "post_code": postal_code,
+                    "post_name": post_name,
+                    "thoroughfare": thoroughfare
+                },
+                "registrationDate": datetime.strptime(company_data["data"]["date_of_registration"], "%d-%m-%Y").strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+                "shareCapital": None,
+                "legalEntityStatus": "active",
+                "legalRepresentative": legal_representatives,
+                "legalEntityActivity": [{"code": "", "businessDescription": ""}],
+                "contactPoint": {
+                    "contactPage": "",
+                    "hasEmail": company_data["data"]["electronic_address"],
+                    "hasTelephone": ""
+                },
+                "issuer_id": company_data["metadata"]["issuer_id"],
+                "issuer_name": company_data["metadata"]["issuing_authority_name"],
+                "issuer_country": company_data["metadata"]["issuing_country"],
+                "issuance_date": now.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+                "expire_date": one_year_from_now.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+                "authentic_source_id": company_data["metadata"]["issuer_id"],
+                "authentic_source_name": "Kamer van Koophandel"
+            }
 
-        #     # Generate salted disclosures for each claim
-        #     for key, value in claims.items():
-        #         # Generate random salt
-        #         salt = base64.urlsafe_b64encode(os.urandom(16)).decode('utf-8').rstrip('=')
+            # Generate salted disclosures for each claim
+            for key, value in claims.items():
+                # Generate random salt
+                salt = base64.urlsafe_b64encode(os.urandom(16)).decode('utf-8').rstrip('=')
                 
-        #         # Create disclosure array [salt, key, value]
-        #         disclosure = [salt, key, value]
+                # Create disclosure array [salt, key, value]
+                disclosure = [salt, key, value]
                 
-        #         # Convert to JSON and then base64url encode
-        #         disclosure_json = json.dumps(disclosure, separators=(',', ':'))
-        #         disclosure_b64 = base64.urlsafe_b64encode(
-        #             disclosure_json.encode('utf-8')
-        #         ).decode('utf-8').rstrip('=')
+                # Convert to JSON and then base64url encode
+                disclosure_json = json.dumps(disclosure, separators=(',', ':'))
+                disclosure_b64 = base64.urlsafe_b64encode(
+                    disclosure_json.encode('utf-8')
+                ).decode('utf-8').rstrip('=')
                 
-        #         # Add encoded disclosure to list
-        #         disclosures.append(disclosure_b64)
+                # Add encoded disclosure to list
+                disclosures.append(disclosure_b64)
                 
-        #         # Generate hash for _sd array
-        #         hash_obj = hashlib.sha256(disclosure_json.encode('utf-8'))
-        #         sd_hash = base64.urlsafe_b64encode(hash_obj.digest()).decode('utf-8').rstrip('=')
-        #         sd_hashes.append(sd_hash)
+                # Generate hash for _sd array
+                hash_obj = hashlib.sha256(disclosure_json.encode('utf-8'))
+                sd_hash = base64.urlsafe_b64encode(hash_obj.digest()).decode('utf-8').rstrip('=')
+                sd_hashes.append(sd_hash)
 
-        #     # JWT header with embedded JWK
-        #     headers = {
-        #         "alg": "ES256",
-        #         "typ": "vc+sd-jwt",
-        #         "kid": "authentication-key",
-        #         "jwk": {
-        #             "kty": "EC",
-        #             "crv": "P-256",
-        #             "x": "viZw39H509xRvZcNHtGw8ixFeexaF4La1ZQLZUWTUUs",
-        #             "y": "ydN1o0LQAdPT1wv-0b4YBNsmQpcXzfmIKiUhhy42MXw",
-        #             "alg": "ES256",
-        #             "kid": "authentication-key",
-        #             "use": "sig"
-        #         }
-        #     }
+            # JWT header with embedded JWK
+            headers = {
+                "alg": "ES256",
+                "typ": "vc+sd-jwt",
+                "kid": "authentication-key",
+                "jwk": {
+                    "kty": "EC",
+                    "crv": "P-256",
+                    "x": "viZw39H509xRvZcNHtGw8ixFeexaF4La1ZQLZUWTUUs",
+                    "y": "ydN1o0LQAdPT1wv-0b4YBNsmQpcXzfmIKiUhhy42MXw",
+                    "alg": "ES256",
+                    "kid": "authentication-key",
+                    "use": "sig"
+                }
+            }
 
-        #     # JWT payload
-        #     jwt_payload = {
-        #         "iat": int(now.timestamp()),
-        #         "nbf": int(now.timestamp()) - 2963,
-        #         "vct": "EUCC",  # Changed to EUCC for this credential type
-        #         "iss": "https://ewc-issuer.nieuwlaar.com/.well-known/jwt-vc-issuer/mini-suomi/issuers/kvk",
-        #         "_sd": sd_hashes,
-        #         "_sd_alg": "sha-256",
-        #         "cnf": {
-        #             "jwk": {
-        #                 "kty": "EC",
-        #                 "x": "rYmxB0Pftb6Vg2hqDw5bt9ZmunVU8cr5Q0YAKlkIXmQ",
-        #                 "y": "QkAPrZ5JQUPBKnodOefFDJRYu54hk-6toTFngyEAEP8",
-        #                 "crv": "P-256",
-        #                 "kid": "authentication-key",
-        #                 "alg": "ES256"
-        #             }
-        #         },
-        #         "termsOfUse": []
-        #     }
+            # JWT payload
+            jwt_payload = {
+                "iat": int(now.timestamp()),
+                "nbf": int(now.timestamp()) - 2963,
+                "vct": "EUCC",  # Changed to EUCC for this credential type
+                "iss": "https://ewc-issuer.nieuwlaar.com/.well-known/jwt-vc-issuer/mini-suomi/issuers/kvk",
+                "_sd": sd_hashes,
+                "_sd_alg": "sha-256",
+                "cnf": {
+                    "jwk": {
+                        "kty": "EC",
+                        "x": "rYmxB0Pftb6Vg2hqDw5bt9ZmunVU8cr5Q0YAKlkIXmQ",
+                        "y": "QkAPrZ5JQUPBKnodOefFDJRYu54hk-6toTFngyEAEP8",
+                        "crv": "P-256",
+                        "kid": "authentication-key",
+                        "alg": "ES256"
+                    }
+                },
+                "termsOfUse": []
+            }
 
-        #     # Use the same private key and JWT generation as before
-        #     private_key = {
-        #         "kty": "EC",
-        #         "crv": "P-256",
-        #         "x": "viZw39H509xRvZcNHtGw8ixFeexaF4La1ZQLZUWTUUs",
-        #         "y": "ydN1o0LQAdPT1wv-0b4YBNsmQpcXzfmIKiUhhy42MXw",
-        #         "alg": "ES256",
-        #         "kid": "authentication-key",
-        #         "d": "kAP-MAxRTy4F77xl-9unD-9IWfneEMC7j6E4WdSEdxI",
-        #         "use": "sig"
-        #     }
+            # Use the same private key and JWT generation as before
+            private_key = {
+                "kty": "EC",
+                "crv": "P-256",
+                "x": "viZw39H509xRvZcNHtGw8ixFeexaF4La1ZQLZUWTUUs",
+                "y": "ydN1o0LQAdPT1wv-0b4YBNsmQpcXzfmIKiUhhy42MXw",
+                "alg": "ES256",
+                "kid": "authentication-key",
+                "d": "kAP-MAxRTy4F77xl-9unD-9IWfneEMC7j6E4WdSEdxI",
+                "use": "sig"
+            }
 
-        #     # Generate the JWT
-        #     credential_jwt = jwt.encode(
-        #         claims=jwt_payload,
-        #         key=private_key,
-        #         algorithm="ES256",
-        #         headers=headers
-        #     )
+            # Generate the JWT
+            credential_jwt = jwt.encode(
+                claims=jwt_payload,
+                key=private_key,
+                algorithm="ES256",
+                headers=headers
+            )
 
-        #     # Combine JWT and base64url-encoded disclosures
-        #     combined_token = credential_jwt + "~" + "~".join(disclosures)
+            # Combine JWT and base64url-encoded disclosures
+            combined_token = credential_jwt + "~" + "~".join(disclosures)
 
-        #     return combined_token
+            return combined_token
 
     except Exception as e:
         logging.error(f"Error generating credential JWT: {str(e)}")
