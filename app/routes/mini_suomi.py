@@ -345,18 +345,17 @@ async def issue_credential_endpoint(
                 }
             )
 
-        # Generate SD-JWT credential
-        mock_sd_jwt = (
-            "eyJ0eXAiOiJzZC1qd3QiLCJhbGciOiJFZERTQSJ9."
-            "eyJfc2QiOlsiZm9vIiwiYmFyIl0sImlzcyI6Imh0dHBzOi8vZXhhbXBsZS5jb20iLCJpYXQiOjE2ODMyOTgyMzF9."
-            "~WyJmb28iLCJiYXIiXQ"
+        # Generate actual JWT credential
+        credential_jwt = mini_suomi.generate_credential_jwt(
+            credential_type="LPIDSdJwt",  # or "EUCCSdJwt" based on request
+            kvk_number="90000011"  # Get this from the request or context
         )
 
-        # Format response according to SD-JWT VC format
+        # Format response
         response = {
             "format": "vc+sd-jwt",
-            "credential": mock_sd_jwt,
-            "c_nonce": "xyz123",  # Add a nonce for the next interaction
+            "credential": credential_jwt,
+            "c_nonce": "xyz123",
             "c_nonce_expires_in": 3600
         }
         
