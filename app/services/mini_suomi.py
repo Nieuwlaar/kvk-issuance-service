@@ -5,7 +5,8 @@ from datetime import datetime, timedelta
 import json
 import os
 from dotenv import load_dotenv
-import jwt as PyJWT
+from jwt import JWT, jwk_from_dict
+from jwt.utils import get_int_from_datetime
 from typing import Dict, Any
 
 # Load environment variables
@@ -119,6 +120,9 @@ def generate_credential_jwt(credential_type: str, kvk_number: str) -> str:
     Uses KVK API to fetch required data.
     """
     try:
+        # Create a JWT instance
+        instance = JWT()
+        
         now = datetime.utcnow()
         one_year_from_now = now + timedelta(days=365)
 
@@ -213,14 +217,22 @@ def generate_credential_jwt(credential_type: str, kvk_number: str) -> str:
         }
 
         # TODO: Replace with actual private key
-        mock_private_key = "your_private_key_here"
+        # For now, using a mock key (you'll need to replace this with your actual key)
+        mock_private_key = {
+            "kty": "EC",
+            "d": "your-private-key-here",
+            "crv": "P-256",
+            "x": "your-public-x-coordinate",
+            "y": "your-public-y-coordinate"
+        }
+
+        signing_key = jwk_from_dict(mock_private_key)
 
         # Generate the JWT
-        credential_jwt = PyJWT.encode(
-            payload=jwt_payload,
-            key=mock_private_key,
-            algorithm="ES256",
-            headers=header
+        credential_jwt = instance.encode(
+            header,
+            jwt_payload,
+            signing_key
         )
 
         return credential_jwt
