@@ -2,11 +2,8 @@ import requests
 import logging
 from app.clients.kvk_bevoegdheden_rest_api import KVKBevoegdhedenAPI
 from datetime import datetime, timedelta
-import json
 import os
 from dotenv import load_dotenv
-from jwt import JWT, jwk_from_dict
-from jwt.utils import get_int_from_datetime
 from typing import Dict, Any
 from jose import jwt
 
