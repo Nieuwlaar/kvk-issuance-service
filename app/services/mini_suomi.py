@@ -6,6 +6,9 @@ import os
 from dotenv import load_dotenv
 from typing import Dict, Any
 from jose import jwt
+import hashlib
+import json
+import base64
 
 # Load environment variables
 load_dotenv()
@@ -113,103 +116,76 @@ def issue_credential(credentialConfiguration: str, kvkNumber: str):
         raise
 
 def generate_credential_jwt(credential_type: str, kvk_number: str) -> str:
-    """
-    Generate a JWT credential based on the credential type and KVK number.
-    Uses KVK API to fetch required data.
-    """
     try:
         now = datetime.utcnow()
         one_year_from_now = now + timedelta(days=365)
 
-        # Get data from KVK API based on credential type
         if credential_type == "LPIDSdJwt":
             lpid_data = KVKBevoegdhedenAPI.get_lpid(kvk_number)
             
-            jwt_payload = {
-                "iss": "https://ewc-issuer.nieuwlaar.com/.well-known/jwt-vc-issuer/mini-suomi/issuers/kvk",
-                "sub": lpid_data["data"]["id"],
-                "iat": int(now.timestamp()),
-                "exp": int(one_year_from_now.timestamp()),
-                "vc": {
-                    "type": ["VerifiableCredential", "LegalPersonIdentifier"],
-                    "credentialSubject": {
-                        "legal_person_id": lpid_data["data"]["id"],
-                        "legal_person_name": lpid_data["data"]["legal_person_name"],
-                        "issuer_id": lpid_data["metadata"]["issuer_id"],
-                        "issuer_name": lpid_data["metadata"]["issuing_authority_name"],
-                        "issuer_country": lpid_data["metadata"]["issuing_country"],
-                        "credential_status": "active",
-                        "authentic_source_id": lpid_data["metadata"]["issuer_id"],
-                        "authentic_source_name": lpid_data["metadata"]["issuing_authority_name"]
-                    }
+            # Create disclosures for each claim
+            disclosures = {
+                "legal_person_id": lpid_data["data"]["id"],
+                "legal_person_name": lpid_data["data"]["legal_person_name"],
+                "issuer_id": lpid_data["metadata"]["issuer_id"],
+                "issuer_name": lpid_data["metadata"]["issuing_authority_name"],
+                "issuer_country": lpid_data["metadata"]["issuing_country"],
+                "issuance_date": None,
+                "expire_date": None,
+                "credential_status": "active",
+                "authentic_source_id": lpid_data["metadata"]["issuer_id"],
+                "authentic_source_name": lpid_data["metadata"]["issuing_authority_name"]
+            }
+
+            # Generate _sd array using SHA-256 hashes of the disclosures
+            sd_hashes = []
+            for key, value in disclosures.items():
+                disclosure_data = json.dumps(value, separators=(',', ':'))
+                hash_obj = hashlib.sha256(disclosure_data.encode('utf-8'))
+                sd_hashes.append(base64.urlsafe_b64encode(hash_obj.digest()).decode('utf-8').rstrip('='))
+
+            # JWT header with embedded JWK
+            headers = {
+                "alg": "ES256",
+                "typ": "vc+sd-jwt",
+                "kid": "authentication-key",
+                "jwk": {
+                    "kty": "EC",
+                    "crv": "P-256",
+                    "x": "viZw39H509xRvZcNHtGw8ixFeexaF4La1ZQLZUWTUUs",
+                    "y": "ydN1o0LQAdPT1wv-0b4YBNsmQpcXzfmIKiUhhy42MXw",
+                    "alg": "ES256",
+                    "kid": "authentication-key",
+                    "use": "sig"
                 }
             }
 
-        elif credential_type == "EUCCSdJwt":
-            company_data = KVKBevoegdhedenAPI.get_company_certificate(kvk_number)
-            
-            # Process legal representatives
-            legal_representatives = [
-                {
-                    "role": "J",
-                    "legalEntityId": company_data["data"]["registration_number"],
-                    "scopeOfRepresentation": "Jointly",
-                    "family_name": person["full_name"].split()[-1],
-                    "given_name": " ".join(person["full_name"].split()[:-1]),
-                    "birth_date": datetime.strptime(person["date_of_birth"], "%d-%m-%Y").strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-                }
-                for person in company_data["data"]["authorized_persons"]
-            ]
-
-            # Process address
-            address_parts = company_data["data"]["postal_address"].split()
-            postal_code = next((part for part in address_parts if len(part) == 6 and part[:4].isdigit()), "")
-            
-            jwt_payload = {
-                "iss": "https://ewc-issuer.nieuwlaar.com/.well-known/jwt-vc-issuer/mini-suomi/issuers/kvk",
-                "sub": company_data["data"]["id"],
-                "iat": int(now.timestamp()),
-                "exp": int(one_year_from_now.timestamp()),
-                "vc": {
-                    "type": ["VerifiableCredential", "EuropeanCompanyCertificate"],
-                    "credentialSubject": {
-                        "legalName": company_data["data"]["legal_person_name"],
-                        "legalFormType": company_data["data"]["legal_form"],
-                        "legalIdentifier": company_data["data"]["id"],
-                        "registeredAddress": {
-                            "post_code": postal_code,
-                            "post_name": address_parts[-1] if address_parts else "",
-                            "thoroughfare": " ".join(address_parts[:-1]) if address_parts else ""
-                        },
-                        "postalAddress": {
-                            "post_code": postal_code,
-                            "post_name": address_parts[-1] if address_parts else "",
-                            "thoroughfare": " ".join(address_parts[:-1]) if address_parts else ""
-                        },
-                        "registrationDate": datetime.strptime(
-                            company_data["data"]["date_of_registration"], 
-                            "%d-%m-%Y"
-                        ).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
-                        "legalEntityStatus": "active",
-                        "legalRepresentative": legal_representatives,
-                        "legalEntityActivity": [{"code": "", "businessDescription": ""}],
-                        "contactPoint": {
-                            "contactPage": "",
-                            "hasEmail": company_data["data"]["electronic_address"],
-                            "hasTelephone": ""
-                        }
-                    }
-                }
+            # Generate a random key pair for holder binding
+            holder_key = {
+                "kty": "EC",
+                "x": "rYmxB0Pftb6Vg2hqDw5bt9ZmunVU8cr5Q0YAKlkIXmQ",
+                "y": "QkAPrZ5JQUPBKnodOefFDJRYu54hk-6toTFngyEAEP8",
+                "crv": "P-256",
+                "kid": "authentication-key",
+                "alg": "ES256"
             }
-        else:
-            raise ValueError(f"Unsupported credential type: {credential_type}")
 
-        # Common JWT header
-        headers = {
-            "typ": "vc+sd-jwt",
-            "alg": "ES256",
-            "kid": "authentication-key",
-            "jwk": {
+            # JWT payload
+            jwt_payload = {
+                "iat": int(now.timestamp()),
+                "nbf": int(now.timestamp()) - 2963,  # Current time minus ~49 minutes
+                "vct": "LPID",
+                "iss": "https://test.minisuomi.fi/api/issuers/kvk",
+                "_sd": sd_hashes,
+                "_sd_alg": "sha-256",
+                "cnf": {
+                    "jwk": holder_key
+                },
+                "termsOfUse": []
+            }
+
+            # Hardcoded private key for signing
+            private_key = {
                 "kty": "EC",
                 "crv": "P-256",
                 "x": "viZw39H509xRvZcNHtGw8ixFeexaF4La1ZQLZUWTUUs",
@@ -219,60 +195,23 @@ def generate_credential_jwt(credential_type: str, kvk_number: str) -> str:
                 "d": "kAP-MAxRTy4F77xl-9unD-9IWfneEMC7j6E4WdSEdxI",
                 "use": "sig"
             }
-        }
 
-        # Hardcoded private key
-        private_key = {
-            "kty": "EC",
-            "crv": "P-256",
-            "x": "viZw39H509xRvZcNHtGw8ixFeexaF4La1ZQLZUWTUUs",
-            "y": "ydN1o0LQAdPT1wv-0b4YBNsmQpcXzfmIKiUhhy42MXw",
-            "alg": "ES256",
-            "kid": "authentication-key",
-            "d": "kAP-MAxRTy4F77xl-9unD-9IWfneEMC7j6E4WdSEdxI",
-            "use": "sig"
-        }
-
-        # Log the components before encoding
-        logging.info("=== JWT Generation Details ===")
-        logging.info(f"Headers: {headers}")
-        logging.info(f"Payload: {jwt_payload}")
-        
-        # Generate the JWT
-        credential_jwt = jwt.encode(
-            claims=jwt_payload,
-            key=private_key,
-            algorithm="ES256",
-            headers=headers
-        )
-
-        # Log the generated JWT
-        logging.info("=== Generated JWT ===")
-        logging.info(f"JWT: {credential_jwt}")
-        
-        # Verify the JWT (for debugging)
-        try:
-            public_key = {
-                "kty": "EC",
-                "crv": "P-256",
-                "x": "viZw39H509xRvZcNHtGw8ixFeexaF4La1ZQLZUWTUUs",
-                "y": "ydN1o0LQAdPT1wv-0b4YBNsmQpcXzfmIKiUhhy42MXw",
-                "alg": "ES256",
-                "kid": "authentication-key",
-                "use": "sig"
-            }
-            decoded = jwt.decode(
-                credential_jwt,
-                public_key,
-                algorithms=["ES256"]
+            # Generate the JWT
+            credential_jwt = jwt.encode(
+                claims=jwt_payload,
+                key=private_key,
+                algorithm="ES256",
+                headers=headers
             )
-            logging.info("=== JWT Verification ===")
-            logging.info("JWT verification successful")
-            logging.info(f"Decoded payload: {decoded}")
-        except Exception as e:
-            logging.error(f"JWT verification failed: {str(e)}")
 
-        return credential_jwt
+            # Log the components
+            logging.info("=== SD-JWT Generation Details ===")
+            logging.info(f"Headers: {headers}")
+            logging.info(f"Payload: {jwt_payload}")
+            logging.info(f"Disclosures: {disclosures}")
+            logging.info(f"Generated JWT: {credential_jwt}")
+
+            return credential_jwt
 
     except Exception as e:
         logging.error(f"Error generating credential JWT: {str(e)}")

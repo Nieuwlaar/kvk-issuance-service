@@ -387,13 +387,14 @@ async def get_jwt_vc_issuer_metadata():
             "jwks": {
                 "keys": [
                     {
-                        "kid": "mini-suomi-signer-key-1",
-                        "kty": "EC",
-                        "crv": "P-256",
-                        "x": "nUWAoAv3XZith8E7i19OdaxOLYFOwM-Z2EuM02TirT4",
-                        "y": "HskHU8BjUi1U9Xqi7Swmj8gwAK_0xkcDjEW_71SosEY",
-                        "alg": "ES256"
-                    }
+                    "kty": "EC",
+                    "crv": "P-256",
+                    "x": "viZw39H509xRvZcNHtGw8ixFeexaF4La1ZQLZUWTUUs",
+                    "y": "ydN1o0LQAdPT1wv-0b4YBNsmQpcXzfmIKiUhhy42MXw",
+                    "alg": "ES256",
+                    "kid": "authentication-key",
+                    "use": "sig"
+                  }
                 ]
             }
         }
