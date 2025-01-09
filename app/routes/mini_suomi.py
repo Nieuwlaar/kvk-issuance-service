@@ -454,25 +454,31 @@ async def issue_credential_endpoint(
                 }
             )
 
-        # Generate credentials based on requested types
-        credentials = []
-        for credential_type in request_body.types:
-            if credential_type in ["LPIDSdJwt", "EUCCSdJwt"]:
-                credential_jwt = mini_suomi.generate_credential_jwt(
-                    credential_type=credential_type,
-                    kvk_number="90000011"  # Get this from the request or context
-                )
-                credentials.append({
-                    "format": "vc+sd-jwt",
-                    "credential": credential_jwt
-                })
+        # Generate actual JWT credential
+        if "LPIDSdJwt" in request_body.types:
+            credential_jwt = mini_suomi.generate_credential_jwt(
+                credential_type="LPIDSdJwt",  # or "EUCCSdJwt" based on request
+                kvk_number="90000011"  # Get this from the request or context
+            )
+        elif "EUCCSdJwt" in request_body.types:
+            credential_jwt = mini_suomi.generate_credential_jwt(
+                credential_type="EUCCSdJwt",  # or "EUCCSdJwt" based on request
+                kvk_number="90000011"  # Get this from the request or context
+            )
 
-        # Return response with all requested credentials
+        # Format response
+        response = {
+            "format": "vc+sd-jwt",
+            "credential": credential_jwt,
+            "c_nonce": "xyz123",
+            "c_nonce_expires_in": 3600
+        }
+        
+        logging.info(f"Sending response: {response}")
         return JSONResponse(
-            status_code=200,
-            content={
-                "credentials": credentials
-            }
+            content=response,
+            media_type="application/json",
+            headers={"Cache-Control": "no-store"}
         )
 
     except Exception as e:
