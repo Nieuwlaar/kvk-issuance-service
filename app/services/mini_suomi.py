@@ -43,7 +43,7 @@ def issue_credential(credentialConfiguration: str, kvkNumber: str):
             #     "issuer_name": lpid_data["metadata"]["issuing_authority_name"],
             #     "issuer_country": lpid_data["metadata"]["issuing_country"],
             #     "issuance_date": now.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
-            #     "expire_date": one_year_from_now.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+            #     "expiry_date": one_year_from_now.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
             #     "credential_status": "active",
             #     "authentic_source_id": lpid_data["metadata"]["issuer_id"],
             #     "authentic_source_name": "Kamer van Koophandel"
@@ -100,7 +100,7 @@ def issue_credential(credentialConfiguration: str, kvkNumber: str):
             #     "issuer_name": company_data["metadata"]["issuing_authority_name"],
             #     "issuer_country": company_data["metadata"]["issuing_country"],
             #     "issuance_date": now.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
-            #     "expire_date": one_year_from_now.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+            #     "expiry_date": one_year_from_now.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
             #     "authentic_source_id": company_data["metadata"]["issuer_id"],
             #     "authentic_source_name": "Kamer van Koophandel"
             # }
@@ -144,7 +144,7 @@ def generate_credential_jwt(credential_type: str, kvk_number: str) -> str:
                 "issuer_name": lpid_data["metadata"]["issuing_authority_name"],
                 "issuer_country": lpid_data["metadata"]["issuing_country"],
                 "issuance_date": now.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
-                "expire_date": one_year_from_now.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+                "expiry_date": one_year_from_now.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
                 "credential_status": "active",
                 "authentic_source_id": lpid_data["metadata"]["issuer_id"],
                 "authentic_source_name": "Kamer van Koophandel",
@@ -315,7 +315,7 @@ def generate_credential_jwt(credential_type: str, kvk_number: str) -> str:
                 "issuer_name": company_data["metadata"]["issuing_authority_name"],
                 "issuer_country": company_data["metadata"]["issuing_country"],
                 "issuance_date": now.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
-                "expire_date": one_year_from_now.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+                "expiry_date": one_year_from_now.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
                 "authentic_source_id": company_data["metadata"]["issuer_id"],
                 "authentic_source_name": "Kamer van Koophandel",
                 "authentic_source_name2": "Kamer van Koophandel",
