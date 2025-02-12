@@ -250,14 +250,14 @@ def generate_credential_jwt(credential_type: str, kvk_number: str) -> str:
             )
 
             # Combine JWT and base64url-encoded disclosures
-            combined_token = credential_jwt + "~" + "~".join(disclosures)
+            combined_token = credential_jwt + "~" + "~".join(disclosures) + "~"
 
             logging.info("=== SD-JWT Generation Details ===")
             logging.info(f"Headers: {headers}")
             logging.info(f"Payload: {jwt_payload}")
             logging.info(f"Disclosures (decoded): {[json.loads(base64.urlsafe_b64decode(d + '==').decode('utf-8')) for d in disclosures]}")
-            logging.info(f"Generated Combined Token: {combined_token}")
-
+            logging.info(f"Final SD-JWT: {combined_token}")
+            
             return combined_token
 
         elif credential_type == "EUCCSdJwt":
