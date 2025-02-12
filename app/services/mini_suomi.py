@@ -195,7 +195,7 @@ def generate_credential_jwt(credential_type: str, kvk_number: str) -> str:
             # JWT header with embedded JWK
             headers = {
                 "alg": "ES256",
-                "typ": "dc+sd-jwt",
+                "typ": "vc+sd-jwt",
                 "kid": "authentication-key",
                 "jwk": {
                     "kty": "EC",
@@ -346,7 +346,7 @@ def generate_credential_jwt(credential_type: str, kvk_number: str) -> str:
             # JWT header with embedded JWK
             headers = {
                 "alg": "ES256",
-                "typ": "dc+sd-jwt",
+                "typ": "vc+sd-jwt",
                 "kid": "authentication-key",
                 "jwk": {
                     "kty": "EC",
