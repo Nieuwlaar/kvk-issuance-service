@@ -148,7 +148,7 @@ def generate_credential_jwt(credential_type: str, kvk_number: str) -> str:
                 "credential_status": "active",
                 "authentic_source_id": lpid_data["metadata"]["issuer_id"],
                 "authentic_source_name": "Kamer van Koophandel",
-                "authentic_source_name2": "Kamer van Koophandel",
+                # "authentic_source_name2": "Kamer van Koophandel",
             }
 
             # Generate salted disclosures for each claim
@@ -318,7 +318,7 @@ def generate_credential_jwt(credential_type: str, kvk_number: str) -> str:
                 "expiry_date": one_year_from_now.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
                 "authentic_source_id": company_data["metadata"]["issuer_id"],
                 "authentic_source_name": "Kamer van Koophandel",
-                "authentic_source_name2": "Kamer van Koophandel",
+                # "authentic_source_name2": "Kamer van Koophandel",
             }
 
             # Generate salted disclosures for each claim
