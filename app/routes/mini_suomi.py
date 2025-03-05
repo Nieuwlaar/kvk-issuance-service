@@ -122,7 +122,7 @@ def get_credential_offer(id: str):
                 "credential_issuer": f"{base_url}/issuers/kvk",
                 # Add credentials array as required by the spec
                 "credentials": [{
-                    "format": "vc+sd-jwt",
+                    # "format": "vc+sd-jwt",
                     "types": ["LPIDSdJwt"],
                     "trust_framework": {
                         "name": "kvk",
@@ -151,7 +151,7 @@ def get_credential_offer(id: str):
                 "credential_issuer": f"{base_url}/issuers/kvk",
                 # Add credentials array as required by the spec
                 "credentials": [{
-                    "format": "vc+sd-jwt",
+                    # "format": "vc+sd-jwt",
                     "types": ["EUCCSdJwt"],
                     "trust_framework": {
                         "name": "kvk",
@@ -187,7 +187,7 @@ def get_credential_issuer_metadata():
             "token_endpoint": f"{base_url}/token",
             "credential_configurations_supported": {
                 "LPIDSdJwt": {
-                    "format": "vc+sd-jwt",
+                    # "format": "vc+sd-jwt",
                     "scope": "LPIDSdJwt",
                     "cryptographic_binding_methods_supported": ["jwk"],
                     "credential_signing_alg_values_supported": ["ES256"],
@@ -224,7 +224,7 @@ def get_credential_issuer_metadata():
                     ]
                 },
                 "EUCCSdJwt": {
-                    "format": "vc+sd-jwt",
+                    # "format": "vc+sd-jwt",
                     "scope": "EUCCSdJwt",
                     "cryptographic_binding_methods_supported": ["jwk"],
                     "credential_signing_alg_values_supported": ["ES256"],
@@ -331,7 +331,7 @@ def get_oauth_server_metadata():
             "credential_endpoint": f"{issuer_url}/openid4vci/issue",
             "credential_configurations_supported": {
                 "LPIDSdJwt": {
-                    "format": "vc+sd-jwt",
+                    # "format": "vc+sd-jwt",
                     "cryptographic_binding_methods_supported": ["jwk"],
                     "credential_signing_alg_values_supported": ["ES256"],
                     "proof_types_supported": {
@@ -468,10 +468,10 @@ async def issue_credential_endpoint(
 
         # Format response
         response = {
-            "format": "vc+sd-jwt",
+            # "format": "vc+sd-jwt",
             "credential": credential_jwt,
             "c_nonce": "xyz123",
-            "c_nonce_expires_in": 3600
+            # "c_nonce_expires_in": 3600
         }
         
         logging.info(f"Sending response: {response}")
