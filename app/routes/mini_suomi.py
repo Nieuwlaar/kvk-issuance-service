@@ -245,103 +245,60 @@ def get_credential_issuer_metadata():
                     }],
                     "claims": [
                         {
-                            "path": ["legal_person_name"],
+                            "path": ["legalName"],
                             "display": [{
-                                "name": "Legal Entity Name",
+                                "name": "Legal Name",
                                 "locale": "en-US"
                             }]
                         },
                         {
-                            "path": ["legal_person_id"],
-                            "display": [{
-                                "name": "Legal Entity ID",
-                                "locale": "en-US"
-                            }]
-                        },
-                        {
-                            "path": ["legal_form_type"],
+                            "path": ["legalFormType"],
                             "display": [{
                                 "name": "Legal Form",
                                 "locale": "en-US"
                             }]
                         },
                         {
-                            "path": ["registration_member_state"],
+                            "path": ["legalIdentifier"],
                             "display": [{
-                                "name": "Registration Member State",
+                                "name": "Legal Identifier",
                                 "locale": "en-US"
                             }]
                         },
                         {
-                            "path": ["registered_address", "full_address"],
+                            "path": ["registeredAddress"],
                             "display": [{
                                 "name": "Registered Address",
                                 "locale": "en-US"
                             }]
                         },
                         {
-                            "path": ["registration_date"],
+                            "path": ["registrationDate"],
                             "display": [{
                                 "name": "Registration Date",
                                 "locale": "en-US"
                             }]
                         },
                         {
-                            "path": ["legal_entity_status"],
+                            "path": ["legalEntityStatus"],
                             "display": [{
                                 "name": "Legal Entity Status",
                                 "locale": "en-US"
                             }]
                         },
                         {
-                            "path": ["legal_entity_activity"],
-                            "display": [{
-                                "name": "Main Activities",
-                                "locale": "en-US"
-                            }]
-                        },
-                        {
-                            "path": ["share_capital"],
-                            "display": [{
-                                "name": "Share Capital",
-                                "locale": "en-US"
-                            }]
-                        },
-                        {
-                            "path": ["legal_entity_duration"],
-                            "display": [{
-                                "name": "Company Duration",
-                                "locale": "en-US"
-                            }]
-                        },
-                        {
-                            "path": ["contact_point", "contact_email"],
-                            "display": [{
-                                "name": "Contact Email",
-                                "locale": "en-US"
-                            }]
-                        },
-                        {
-                            "path": ["contact_point", "contact_telephone"],
-                            "display": [{
-                                "name": "Contact Telephone",
-                                "locale": "en-US"
-                            }]
-                        },
-                        {
-                            "path": ["contact_point", "contact_page"],
-                            "display": [{
-                                "name": "Website",
-                                "locale": "en-US"
-                            }]
-                        },
-                        {
-                            "path": ["legal_representative"],
+                            "path": ["legalRepresentative"],
                             "display": [{
                                 "name": "Legal Representatives",
                                 "locale": "en-US"
-                            }],
-                            "mandatory": true
+                            }]
+                        },
+                        {
+                            "path": ["contactPoint"],
+                            "display": [{
+                                "name": "Contact Information",
+                                "locale": "en-US"
+                            }]
                         }
                     ]
                 }
