@@ -507,8 +507,8 @@ async def get_jwt_vc_issuer_metadata():
                     "x": "viZw39H509xRvZcNHtGw8ixFeexaF4La1ZQLZUWTUUs",
                     "y": "ydN1o0LQAdPT1wv-0b4YBNsmQpcXzfmIKiUhhy42MXw",
                     "alg": "ES256",
-                    "kid": "authentication-key",
-                    "use": "sig"
+                    "kid": "authentication-key"
+                    # "use": "sig"
                   }
                 ]
             }
