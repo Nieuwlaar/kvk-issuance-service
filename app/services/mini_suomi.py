@@ -203,8 +203,8 @@ def generate_credential_jwt(credential_type: str, kvk_number: str) -> str:
                     "x": "viZw39H509xRvZcNHtGw8ixFeexaF4La1ZQLZUWTUUs",
                     "y": "ydN1o0LQAdPT1wv-0b4YBNsmQpcXzfmIKiUhhy42MXw",
                     "alg": "ES256",
-                    "kid": "authentication-key",
-                    "use": "sig"
+                    "kid": "authentication-key"
+                    # "use": "sig"
                 }
             }
 
@@ -237,8 +237,8 @@ def generate_credential_jwt(credential_type: str, kvk_number: str) -> str:
                 "y": "ydN1o0LQAdPT1wv-0b4YBNsmQpcXzfmIKiUhhy42MXw",
                 "alg": "ES256",
                 "kid": "authentication-key",
-                "d": "kAP-MAxRTy4F77xl-9unD-9IWfneEMC7j6E4WdSEdxI",
-                "use": "sig"
+                "d": "kAP-MAxRTy4F77xl-9unD-9IWfneEMC7j6E4WdSEdxI"
+                # "use": "sig"
             }
 
             # Generate the JWT
@@ -367,8 +367,8 @@ def generate_credential_jwt(credential_type: str, kvk_number: str) -> str:
                     "x": "viZw39H509xRvZcNHtGw8ixFeexaF4La1ZQLZUWTUUs",
                     "y": "ydN1o0LQAdPT1wv-0b4YBNsmQpcXzfmIKiUhhy42MXw",
                     "alg": "ES256",
-                    "kid": "authentication-key",
-                    "use": "sig"
+                    "kid": "authentication-key"
+                    # "use": "sig"
                 }
             }
 
@@ -401,8 +401,8 @@ def generate_credential_jwt(credential_type: str, kvk_number: str) -> str:
                 "y": "ydN1o0LQAdPT1wv-0b4YBNsmQpcXzfmIKiUhhy42MXw",
                 "alg": "ES256",
                 "kid": "authentication-key",
-                "d": "kAP-MAxRTy4F77xl-9unD-9IWfneEMC7j6E4WdSEdxI",
-                "use": "sig"
+                "d": "kAP-MAxRTy4F77xl-9unD-9IWfneEMC7j6E4WdSEdxI"
+                # "use": "sig"
             }
 
             # Generate the JWT
