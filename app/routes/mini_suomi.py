@@ -434,15 +434,15 @@ async def issue_credential_endpoint(
         logging.info(f"Parsed Request Body: {request_body}")
 
         # Validate format and types
-        if request_body.format != "vc+sd-jwt":
-            logging.error(f"Unsupported format: {request_body.format}")
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "error": "unsupported_credential_format",
-                    "error_description": "Only vc+sd-jwt format is supported"
-                }
-            )
+        # if request_body.format != "vc+sd-jwt":
+        #     logging.error(f"Unsupported format: {request_body.format}")
+        #     return JSONResponse(
+        #         status_code=400,
+        #         content={
+        #             "error": "unsupported_credential_format",
+        #             "error_description": "Only vc+sd-jwt format is supported"
+        #         }
+        #     )
 
         if not request_body.types or not any(cred_type in request_body.types for cred_type in ["LPIDSdJwt", "EUCCSdJwt"]):
             logging.error(f"Invalid types: {request_body.types}")
