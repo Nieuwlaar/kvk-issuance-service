@@ -258,6 +258,19 @@ def generate_credential_jwt(credential_type: str, kvk_number: str) -> str:
             logging.info(f"Disclosures (decoded): {[json.loads(base64.urlsafe_b64decode(d + '==').decode('utf-8')) for d in disclosures]}")
             logging.info(f"Final SD-JWT: {combined_token}")
             
+            # Add this debug logging
+            logging.info("=== SD-JWT Debug Information ===")
+            logging.info(f"JWT part length: {len(credential_jwt)}")
+            logging.info(f"Number of disclosures: {len(disclosures)}")
+            logging.info("Individual disclosures:")
+            for i, disc in enumerate(disclosures):
+                # Decode and print each disclosure
+                padded = disc + "=" * (-len(disc) % 4)
+                decoded = json.loads(base64.urlsafe_b64decode(padded))
+                logging.info(f"Disclosure {i+1}: {decoded}")
+            logging.info(f"Final token parts: {len(combined_token.split('~'))}")
+            logging.info("=== End Debug Information ===")
+            
             return combined_token
 
         elif credential_type == "EUCCSdJwt":
@@ -403,6 +416,19 @@ def generate_credential_jwt(credential_type: str, kvk_number: str) -> str:
             # Combine JWT and base64url-encoded disclosures
             combined_token = credential_jwt + "~" + "~".join(disclosures) + "~"
 
+            # Add this debug logging
+            logging.info("=== SD-JWT Debug Information ===")
+            logging.info(f"JWT part length: {len(credential_jwt)}")
+            logging.info(f"Number of disclosures: {len(disclosures)}")
+            logging.info("Individual disclosures:")
+            for i, disc in enumerate(disclosures):
+                # Decode and print each disclosure
+                padded = disc + "=" * (-len(disc) % 4)
+                decoded = json.loads(base64.urlsafe_b64decode(padded))
+                logging.info(f"Disclosure {i+1}: {decoded}")
+            logging.info(f"Final token parts: {len(combined_token.split('~'))}")
+            logging.info("=== End Debug Information ===")
+            
             return combined_token
 
     except Exception as e:
