@@ -13,8 +13,8 @@ key_data = {
         "y": "ydN1o0LQAdPT1wv-0b4YBNsmQpcXzfmIKiUhhy42MXw",
         "alg": "ES256",
         "kid": "authentication-key",
-        "d": "kAP-MAxRTy4F77xl-9unD-9IWfneEMC7j6E4WdSEdxI",
-        "use": "sig"
+        "d": "kAP-MAxRTy4F77xl-9unD-9IWfneEMC7j6E4WdSEdxI"
+        # "use": "sig"
     }
 }
 
