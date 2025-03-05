@@ -401,7 +401,7 @@ def generate_credential_jwt(credential_type: str, kvk_number: str) -> str:
             )
 
             # Combine JWT and base64url-encoded disclosures
-            combined_token = credential_jwt + "~" + "~".join(disclosures)
+            combined_token = credential_jwt + "~" + "~".join(disclosures) + "~"
 
             return combined_token
 
