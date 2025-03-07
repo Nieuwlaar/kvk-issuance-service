@@ -324,7 +324,7 @@ def get_oauth_server_metadata():
             "issuer": issuer_url,
             "authorization_endpoint": f"{issuer_url}/authorize",
             "token_endpoint": f"{issuer_url}/token",
-            "jwks_uri": f"{issuer_url}/jwks.json",
+            "jwks_uri": f"{issuer_url}/jwks",
             "response_types_supported": ["code"],
             "grant_types_supported": ["authorization_code", "urn:ietf:params:oauth:grant-type:pre-authorized_code"],
             "token_endpoint_auth_methods_supported": ["none"],
