@@ -458,12 +458,12 @@ async def issue_credential_endpoint(
         if "LPIDSdJwt" in request_body.types:
             credential_jwt = mini_suomi.generate_credential_jwt(
                 credential_type="LPIDSdJwt",  # or "EUCCSdJwt" based on request
-                kvk_number="90000011"  # Get this from the request or context
+                kvk_number="90000021"  # Get this from the request or context
             )
         elif "EUCCSdJwt" in request_body.types:
             credential_jwt = mini_suomi.generate_credential_jwt(
                 credential_type="EUCCSdJwt",  # or "EUCCSdJwt" based on request
-                kvk_number="90000011"  # Get this from the request or context
+                kvk_number="90000021"  # Get this from the request or context
             )
 
         # Format response
