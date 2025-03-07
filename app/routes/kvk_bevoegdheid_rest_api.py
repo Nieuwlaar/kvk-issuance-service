@@ -5,7 +5,7 @@ from datetime import date
 
 from app.clients.kvk_bevoegdheden_rest_api import KVKBevoegdhedenAPI
 
-router = APIRouter(prefix="/api")
+router = APIRouter()
 
 # Pydantic model for signatory rights request
 class SignatoryRightsRequest(BaseModel):
