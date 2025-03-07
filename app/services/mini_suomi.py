@@ -213,7 +213,7 @@ def generate_credential_jwt(credential_type: str, kvk_number: str) -> str:
                 "iat": int(now.timestamp()),
                 "nbf": int(now.timestamp()) - 2963,
                 "vct": "LPID",
-                "iss": "https://ewc-issuer.nieuwlaar.com/mini-suomi/issuers/kvk",
+                "iss": "https://kvk-issuance-service.nieuwlaar.com/mini-suomi/issuers/kvk",
                 "_sd": sd_hashes,
                 "_sd_alg": "sha-256",
                 "cnf": {
@@ -377,7 +377,7 @@ def generate_credential_jwt(credential_type: str, kvk_number: str) -> str:
                 "iat": int(now.timestamp()),
                 "nbf": int(now.timestamp()) - 2963,
                 "vct": "EUCC",  # Changed to EUCC for this credential type
-                "iss": "https://ewc-issuer.nieuwlaar.com/mini-suomi/issuers/kvk",
+                "iss": "https://kvk-issuance-service.nieuwlaar.com/mini-suomi/issuers/kvk",
                 "_sd": sd_hashes,
                 "_sd_alg": "sha-256",
                 "cnf": {
