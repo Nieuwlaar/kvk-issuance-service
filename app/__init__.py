@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import base_routes, mini_suomi, well_known_routes, rdw_niscy
+from app.routes import base_routes, mini_suomi, well_known_routes, rdw_niscy, bevoegdheid
 
 app = FastAPI()
 
@@ -20,3 +20,4 @@ app.include_router(well_known_routes.router)
 app.include_router(base_routes.router)
 app.include_router(mini_suomi.router, prefix="/mini-suomi")
 app.include_router(rdw_niscy.router, prefix="/rdw-niscy")
+app.include_router(bevoegdheid.router, prefix="/bevoegdheid")
