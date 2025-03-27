@@ -7,7 +7,7 @@ router = APIRouter()
 # Define a simple GET route at the root
 @router.get("/")
 def root():
-    return {"message": "Welcome to the KVK Issuance Service!"}
+    return {"message": "Welcome to the KVK Issuance Service!!"}
 
 # Route for fetching LPID details (Use this to test the connection with the kvk-bevoegdheden-rest-api)
 @router.get("/lpid/{kvk_nummer}")
