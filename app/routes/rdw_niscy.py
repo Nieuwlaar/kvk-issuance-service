@@ -27,7 +27,7 @@ async def create_power_of_representation(request: PowerOfRepresentationRequest):
         
         # Initialize Chrome in headless mode with optimized settings
         options = webdriver.ChromeOptions()
-        options.binary_location = "/usr/bin/google-chrome"
+        options.binary_location = "/usr/bin/chromium-browser"
         options.add_argument("--headless=new")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
@@ -50,7 +50,7 @@ async def create_power_of_representation(request: PowerOfRepresentationRequest):
         options.add_argument("--enable-automation")
         options.add_argument("--password-store=basic")
 
-        
+
         driver = webdriver.Chrome(
             service=Service(ChromeDriverManager().install()),
             options=options
