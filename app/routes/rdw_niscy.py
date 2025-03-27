@@ -6,6 +6,8 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 import time
 
 # Create router with prefix
@@ -32,7 +34,10 @@ async def create_power_of_representation(request: PowerOfRepresentationRequest):
         options.add_argument('--disable-notifications')
         options.add_argument('--blink-settings=imagesEnabled=false')  # Disable images for faster loading
         
-        driver = webdriver.Chrome(options=options)
+        driver = webdriver.Chrome(
+            service=Service(ChromeDriverManager().install()),
+            options=options
+        )
         driver.set_page_load_timeout(10)
         
         try:
