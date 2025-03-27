@@ -8,7 +8,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
 import time
 
 # Create router with prefix
@@ -27,8 +26,8 @@ async def create_power_of_representation(request: PowerOfRepresentationRequest):
         
         # Initialize Chrome in headless mode with optimized settings
         options = webdriver.ChromeOptions()
-        options.binary_location = "/usr/bin/chromium-browser"
-        options.add_argument("--headless=new")
+        options.binary_location = "/usr/bin/chromium-browser"  # Ensure chromium is used
+        options.add_argument("--headless")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-gpu")
@@ -50,9 +49,11 @@ async def create_power_of_representation(request: PowerOfRepresentationRequest):
         options.add_argument("--enable-automation")
         options.add_argument("--password-store=basic")
 
+        # Use the system-installed chromedriver
+        service = Service("/usr/lib/chromium/chromedriver")  # Specify path to the chromedriver
 
         driver = webdriver.Chrome(
-            service=Service(ChromeDriverManager().install()),
+            service=service,
             options=options
         )
         driver.set_page_load_timeout(10)
