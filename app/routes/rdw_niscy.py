@@ -28,20 +28,29 @@ async def create_power_of_representation(request: PowerOfRepresentationRequest):
         # Initialize Chrome in headless mode with optimized settings
         options = webdriver.ChromeOptions()
         options.binary_location = "/usr/bin/google-chrome"
-        options.add_argument('--headless=new')
-        options.add_argument('--no-sandbox')
-        options.add_argument('--disable-dev-shm-usage')
-        options.add_argument('--disable-gpu')
-        options.add_argument('--disable-software-rasterizer')
-        options.add_argument('--disable-extensions')
-        options.add_argument('--disable-infobars')
-        options.add_argument('--disable-notifications')
-        options.add_argument('--blink-settings=imagesEnabled=false')
-        options.add_argument('--remote-debugging-port=9222')
-        options.add_argument('--window-size=1920x1080')
-        options.add_argument(f'--user-data-dir={user_data_dir}')
-        options.add_argument('--single-process')  # Optional but helps in limited environments
+        options.add_argument("--headless=new")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--disable-software-rasterizer")
+        options.add_argument("--disable-extensions")
+        options.add_argument("--disable-infobars")
+        options.add_argument("--disable-notifications")
+        options.add_argument("--blink-settings=imagesEnabled=false")
+        options.add_argument("--remote-debugging-port=9222")
+        options.add_argument("--window-size=1920x1080")
+        options.add_argument(f"--user-data-dir={user_data_dir}")
+        options.add_argument("--disable-background-networking")
+        options.add_argument("--disable-default-apps")
+        options.add_argument("--disable-sync")
+        options.add_argument("--metrics-recording-only")
+        options.add_argument("--mute-audio")
+        options.add_argument("--no-first-run")
+        options.add_argument("--safebrowsing-disable-auto-update")
+        options.add_argument("--enable-automation")
+        options.add_argument("--password-store=basic")
 
+        
         driver = webdriver.Chrome(
             service=Service(ChromeDriverManager().install()),
             options=options
