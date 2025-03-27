@@ -15,7 +15,7 @@ load_dotenv()
 
 # Get ISSUER_DOMAIN based on environment
 ENVIRONMENT = os.getenv('ENVIRONMENT', 'development')
-ISSUER_DOMAIN = os.getenv('PROD_DOMAIN') if ENVIRONMENT == "production" else os.getenv('DEV_DOMAIN')
+ISSUER_DOMAIN = os.getenv('EWC_PROD_DOMAIN') if ENVIRONMENT == "production" else os.getenv('DEV_DOMAIN')
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
