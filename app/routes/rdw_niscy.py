@@ -2,6 +2,7 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 import logging
+import tempfile
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -12,6 +13,7 @@ import time
 
 # Create router with prefix
 router = APIRouter()
+user_data_dir = tempfile.mkdtemp()
 
 # Define the request model
 class PowerOfRepresentationRequest(BaseModel):
@@ -30,11 +32,16 @@ async def create_power_of_representation(request: PowerOfRepresentationRequest):
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
         options.add_argument('--disable-gpu')
+        options.add_argument('--disable-software-rasterizer')
         options.add_argument('--disable-extensions')
         options.add_argument('--disable-infobars')
         options.add_argument('--disable-notifications')
-        options.add_argument('--blink-settings=imagesEnabled=false')  # Disable images for faster loading
-        
+        options.add_argument('--blink-settings=imagesEnabled=false')
+        options.add_argument('--remote-debugging-port=9222')
+        options.add_argument('--window-size=1920x1080')
+        options.add_argument(f'--user-data-dir={user_data_dir}')
+        options.add_argument('--single-process')  # Optional but helps in limited environments
+
         driver = webdriver.Chrome(
             service=Service(ChromeDriverManager().install()),
             options=options
