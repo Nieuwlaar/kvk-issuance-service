@@ -25,6 +25,7 @@ async def create_power_of_representation(request: PowerOfRepresentationRequest):
         
         # Initialize Chrome in headless mode with optimized settings
         options = webdriver.ChromeOptions()
+        options.binary_location = "/usr/bin/chromium"
         options.add_argument('--headless')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
