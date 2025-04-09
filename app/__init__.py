@@ -9,7 +9,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",  # Local development
-        "https://mijn-kvk-portal.nieuwlaar.com"  # Production frontend
+        "https://mijn-kvk-portal.nieuwlaar.com",
+        "https://kvk-issuance-ui.nieuwlaar.com"
     ],
     allow_credentials=True,
     allow_methods=["*"],  # Allows all methods
