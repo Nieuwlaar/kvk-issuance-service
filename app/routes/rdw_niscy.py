@@ -136,7 +136,7 @@ async def verify_pid_authentication():
         options.add_argument("--enable-automation")
         options.add_argument("--password-store=basic")
 
-        service = Service("/usr/lib/chromium/chromedriver")
+        service = Service("/usr/bin/chromedriver")
         driver = webdriver.Chrome(service=service, options=options)
         driver.set_page_load_timeout(30)
 
