@@ -26,8 +26,8 @@ async def create_power_of_representation(request: PowerOfRepresentationRequest):
         
         # Initialize Chrome in headless mode with optimized settings
         options = webdriver.ChromeOptions()
-        options.binary_location = "/usr/bin/chromium-browser"  # Ensure chromium is used
-        options.add_argument("--headless")
+        options.binary_location = "/usr/bin/chromium"  # Ensure chromium is used
+        options.add_argument("--headless=new")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-gpu")
@@ -48,10 +48,11 @@ async def create_power_of_representation(request: PowerOfRepresentationRequest):
         options.add_argument("--safebrowsing-disable-auto-update")
         options.add_argument("--enable-automation")
         options.add_argument("--password-store=basic")
+        options.add_argument("--single-process")
+        options.add_argument("--no-zygote")
 
         # Use the system-installed chromedriver
-        service = Service("/usr/lib/chromium/chromedriver")  # Specify path to the chromedriver
-
+        service = Service("/usr/bin/chromedriver")  # Specify path to the chromedriver
         driver = webdriver.Chrome(
             service=service,
             options=options
