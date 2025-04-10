@@ -14,7 +14,7 @@ import time
 router = APIRouter()
 user_data_dir = tempfile.mkdtemp()
 
-# Define the request model
+# Define the request models
 class PowerOfRepresentationRequest(BaseModel):
     legal_person_identifier: str
     legal_name: str
@@ -56,7 +56,7 @@ async def create_power_of_representation(request: PowerOfRepresentationRequest):
             service=service,
             options=options
         )
-        driver.set_page_load_timeout(10)
+        driver.set_page_load_timeout(30)
         
         try:
             # Navigate and fill forms with minimal waits
@@ -109,4 +109,55 @@ async def create_power_of_representation(request: PowerOfRepresentationRequest):
             
     except Exception as e:
         logging.error(f"Error in create_power_of_representation: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/pid-authentication")
+async def verify_pid_authentication():
+    try:
+        logging.info(f"Received PID Authentication request")
+
+        # Initialize Chrome with options for visibility
+        options = webdriver.ChromeOptions()
+        options.binary_location = "/usr/bin/chromium-browser"
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--disable-extensions")
+        options.add_argument("--disable-infobars")
+        options.add_argument("--disable-notifications")
+        options.add_argument(f"--user-data-dir={user_data_dir}")
+        options.add_argument("--disable-background-networking")
+        options.add_argument("--disable-default-apps")
+        options.add_argument("--disable-sync")
+        options.add_argument("--metrics-recording-only")
+        options.add_argument("--mute-audio")
+        options.add_argument("--no-first-run")
+        options.add_argument("--safebrowsing-disable-auto-update")
+        options.add_argument("--enable-automation")
+        options.add_argument("--password-store=basic")
+
+        service = Service("/usr/lib/chromium/chromedriver")
+        driver = webdriver.Chrome(service=service, options=options)
+        driver.set_page_load_timeout(30)
+
+        try:
+            # Navigate to the verifier website
+            logging.info("Navigating to https://eudi-verifier.nieuwlaar.com/home")
+            driver.get("https://eudi-verifier.nieuwlaar.com/home")
+
+            # Keep the browser open for a few seconds to view
+            logging.info("Page loaded. Pausing for 10 seconds...")
+            time.sleep(10)
+
+            logging.info("PID Authentication simulation complete.")
+            return {
+                "status": "success",
+                "message": "Browser opened to the specified URL."
+            }
+
+        finally:
+            logging.info("Closing browser.")
+            driver.quit()
+
+    except Exception as e:
+        logging.error(f"Error in verify_pid_authentication: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
