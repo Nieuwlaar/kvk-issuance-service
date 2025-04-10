@@ -119,13 +119,19 @@ async def verify_pid_authentication():
 
         # Initialize Chrome with options for visibility
         options = webdriver.ChromeOptions()
-        options.binary_location = "/usr/bin/chromium-browser"
+        # Use the same binary location as the working endpoint
+        options.binary_location = "/usr/bin/chromium"
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
+        # Add missing options from the working endpoint
+        options.add_argument("--disable-gpu")
+        options.add_argument("--disable-software-rasterizer")
         options.add_argument("--disable-extensions")
         options.add_argument("--disable-infobars")
         options.add_argument("--disable-notifications")
-        options.add_argument(f"--user-data-dir={user_data_dir}")
+        # Remove the user data dir argument if not strictly needed,
+        # or ensure it's handled correctly (like in the working endpoint)
+        # options.add_argument(f"--user-data-dir={user_data_dir}") # Re-add if needed, potentially using the same global 'user_data_dir'
         options.add_argument("--disable-background-networking")
         options.add_argument("--disable-default-apps")
         options.add_argument("--disable-sync")
@@ -135,7 +141,18 @@ async def verify_pid_authentication():
         options.add_argument("--safebrowsing-disable-auto-update")
         options.add_argument("--enable-automation")
         options.add_argument("--password-store=basic")
+        # Add headless mode and other potentially important flags from the working endpoint
+        options.add_argument("--headless=new") # Add headless mode
+        options.add_argument("--blink-settings=imagesEnabled=false")
+        options.add_argument("--remote-debugging-port=9222")
+        options.add_argument("--window-size=1920x1080")
+        options.add_argument("--single-process")
+        options.add_argument("--no-zygote")
+        # Add the user data directory from the working endpoint
+        options.add_argument(f"--user-data-dir={user_data_dir}")
 
+
+        # Use the system-installed chromedriver explicitly like in the working endpoint
         service = Service("/usr/bin/chromedriver")
         driver = webdriver.Chrome(service=service, options=options)
         driver.set_page_load_timeout(30)
@@ -145,14 +162,21 @@ async def verify_pid_authentication():
             logging.info("Navigating to https://eudi-verifier.nieuwlaar.com/home")
             driver.get("https://eudi-verifier.nieuwlaar.com/home")
 
-            # Keep the browser open for a few seconds to view
-            logging.info("Page loaded. Pausing for 10 seconds...")
-            time.sleep(10)
+            # It's generally better to wait for a specific element than using time.sleep
+            # If you need to check something on the page, use WebDriverWait
+            # For example:
+            # wait = WebDriverWait(driver, 10)
+            # wait.until(EC.presence_of_element_located((By.TAG_NAME, "body"))) # Wait for body tag to be present
 
-            logging.info("PID Authentication simulation complete.")
+            # Removing the sleep unless it's specifically needed for manual observation
+            # logging.info("Page loaded. Pausing for 10 seconds...")
+            # time.sleep(10)
+
+            # Instead of pausing, you might want to return some confirmation or check page content
+            logging.info("Successfully navigated to the verifier page.")
             return {
                 "status": "success",
-                "message": "Browser opened to the specified URL."
+                "message": "Successfully navigated to the verifier URL." # Updated message
             }
 
         finally:
@@ -161,4 +185,6 @@ async def verify_pid_authentication():
 
     except Exception as e:
         logging.error(f"Error in verify_pid_authentication: {str(e)}")
+        # Log the stack trace for better debugging
+        logging.exception("Stack trace:")
         raise HTTPException(status_code=500, detail=str(e))
