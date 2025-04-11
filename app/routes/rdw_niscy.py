@@ -267,41 +267,63 @@ async def verify_pid_authentication():
                 
                 # 6. Select the required checkboxes
                 try:
-                    family_name_checkbox = wait.until(
-                        EC.element_to_be_clickable(
-                            (By.XPATH, "//mat-checkbox[.//label[contains(text(), 'Family name')]]")
+                    # Find checkboxes by their labels within the dialog
+                    checkbox_selectors = [
+                        "//mat-checkbox[.//label[contains(text(), 'Family name')]]",
+                        "//mat-checkbox[.//label[contains(text(), 'Given name')]]",
+                        "//mat-checkbox[.//label[contains(text(), 'Birthdate')]]"
+                    ]
+                    
+                    for selector in checkbox_selectors:
+                        checkbox = wait.until(
+                            EC.element_to_be_clickable((By.XPATH, selector))
+                        )
+                        # Click the actual input element inside the checkbox
+                        input_element = checkbox.find_element(By.CSS_SELECTOR, "input[type='checkbox']")
+                        if not input_element.is_selected():
+                            input_element.click()
+                        log_and_capture(f"Selected checkbox: {selector}")
+                    
+                    # Wait for dialog to stabilize after checkbox selections
+                    time.sleep(1)
+                    
+                    # Verify dialog is still present and visible
+                    dialog = wait.until(
+                        EC.presence_of_element_located(
+                            (By.CSS_SELECTOR, "mat-dialog-container")
                         )
                     )
-                    family_name_checkbox.click()
-                    log_and_capture("Selected Family name checkbox")
-                    
-                    given_name_checkbox = wait.until(
-                        EC.element_to_be_clickable(
-                            (By.XPATH, "//mat-checkbox[.//label[contains(text(), 'Given name')]]")
-                        )
-                    )
-                    given_name_checkbox.click()
-                    log_and_capture("Selected Given name checkbox")
-                    
-                    birthdate_checkbox = wait.until(
-                        EC.element_to_be_clickable(
-                            (By.XPATH, "//mat-checkbox[.//label[contains(text(), 'Birthdate')]]")
-                        )
-                    )
-                    birthdate_checkbox.click()
-                    log_and_capture("Selected Birthdate checkbox")
-                    
-                    # Verify dialog is still present before clicking Select
                     if not dialog.is_displayed():
-                        raise Exception("Dialog disappeared before clicking Select button")
+                        raise Exception("Dialog is not visible after checkbox selections")
                     
-                    # 7. Click the Select button
+                    # Find the Select button with the badge
                     select_button = wait.until(
                         EC.element_to_be_clickable(
-                            (By.XPATH, "//button[contains(@class, 'mat-dialog-close') and .//span[contains(text(), 'Select')]]")
+                            (By.CSS_SELECTOR, "button.mat-badge-accent")
                         )
                     )
-                    select_button.click()
+                    
+                    # Verify the badge shows 3 selected items
+                    badge = select_button.find_element(By.CSS_SELECTOR, ".mat-badge-content")
+                    if badge.text != "3":
+                        raise Exception(f"Expected 3 selected items, but badge shows {badge.text}")
+                    
+                    # Try multiple approaches to click the button
+                    try:
+                        # First try regular click
+                        select_button.click()
+                    except:
+                        try:
+                            # Try JavaScript click
+                            driver.execute_script("arguments[0].click();", select_button)
+                        except:
+                            try:
+                                # Try ActionChains click
+                                from selenium.webdriver.common.action_chains import ActionChains
+                                ActionChains(driver).move_to_element(select_button).click().perform()
+                            except Exception as e:
+                                raise Exception(f"All click attempts failed: {str(e)}")
+                    
                     log_and_capture("Clicked Select button to confirm attribute selection")
                     
                 except Exception as e:
