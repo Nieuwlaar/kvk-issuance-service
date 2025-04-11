@@ -176,35 +176,27 @@ async def verify_pid_authentication():
             # --- Interaction Steps ---
 
             # 1. Click "Person Identification Data (PID)"
-            #    Using XPath to find a button/link containing the text. Adjust if needed.
             try:
-                pid_element_xpath = "//*[self::a or self::button][contains(normalize-space(), 'Person Identification Data (PID)')]"
+                # Look for the mat-panel-title element
+                pid_element_xpath = "//mat-panel-title[contains(normalize-space(), 'Person Identification Data (PID)')]"
                 pid_button = wait.until(EC.element_to_be_clickable((By.XPATH, pid_element_xpath)))
-                log_and_capture("Found 'Person Identification Data (PID)' element.")
+                log_and_capture("Found PID panel title")
                 pid_button.click()
-                log_and_capture("Clicked 'Person Identification Data (PID)'.")
+                log_and_capture("Clicked PID panel")
+                
+                # Wait a moment for panel expansion
+                time.sleep(0.5)
+                
+                # 2. Click the "Specific attributes" option
+                specific_attrs_xpath = "//span[contains(@class, 'mdc-list-item__primary-text') and contains(text(), 'Specific attributes')]"
+                specific_attrs = wait.until(EC.element_to_be_clickable((By.XPATH, specific_attrs_xpath)))
+                log_and_capture("Found 'Specific attributes' option")
+                specific_attrs.click()
+                log_and_capture("Clicked 'Specific attributes' option")
+                
             except Exception as e:
-                log_and_capture(f"Error clicking PID element: {e}")
-                raise # Re-raise exception to stop execution and report error
-
-            # 2. Select specific attributes (Example: given_name, family_name)
-            #    Assuming checkboxes with these names. Adjust selectors if needed.
-            try:
-                attributes_to_select = ["given_name", "family_name", "birth_date"] # Example attributes
-                for attr_name in attributes_to_select:
-                     # Wait for the checkbox to be present first
-                    attr_checkbox = wait.until(EC.presence_of_element_located((By.NAME, attr_name)))
-                    # Check if it's not already selected before clicking
-                    if not attr_checkbox.is_selected():
-                         # Scroll into view if necessary, then click
-                        driver.execute_script("arguments[0].scrollIntoView(true);", attr_checkbox)
-                        time.sleep(0.2) # Small pause after scroll before click
-                        attr_checkbox.click()
-                        log_and_capture(f"Selected attribute: {attr_name}")
-                    else:
-                         log_and_capture(f"Attribute already selected: {attr_name}")
-            except Exception as e:
-                log_and_capture(f"Error selecting attributes: {e}")
+                log_and_capture(f"Error in initial interaction: {str(e)}")
+                log_and_capture(f"Current page source: {driver.page_source[:500]}...")  # Log first 500 chars of page source
                 raise
 
             # 3. Choose the "mso_mdoc" format
