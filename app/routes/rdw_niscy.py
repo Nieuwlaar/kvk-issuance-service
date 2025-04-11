@@ -274,26 +274,39 @@ async def verify_pid_authentication():
                         "//mat-checkbox[.//label[contains(text(), 'Birthdate')]]"
                     ]
                     
+                    # First pass - click all checkboxes
                     for selector in checkbox_selectors:
                         checkbox = wait.until(
                             EC.element_to_be_clickable((By.XPATH, selector))
                         )
-                        # Click the actual input element inside the checkbox
                         input_element = checkbox.find_element(By.CSS_SELECTOR, "input[type='checkbox']")
                         if not input_element.is_selected():
-                            # Use JavaScript click to ensure proper event triggering
                             driver.execute_script("arguments[0].click();", input_element)
                             log_and_capture(f"Clicked checkbox: {selector}")
-                            # Add a small delay after each click
-                            time.sleep(1)
+                            time.sleep(1)  # Wait after each click
                         else:
                             log_and_capture(f"Checkbox already selected: {selector}")
                         
-                        # Log the current state of the checkbox
+                        # Log the current state
                         log_and_capture(f"Checkbox state after click: {input_element.is_selected()}")
                     
-                    # Wait longer for dialog to stabilize after checkbox selections
+                    # Wait for dialog to stabilize
                     time.sleep(2)
+                    
+                    # Second pass - verify and re-click if needed
+                    for selector in checkbox_selectors:
+                        checkbox = wait.until(
+                            EC.element_to_be_clickable((By.XPATH, selector))
+                        )
+                        input_element = checkbox.find_element(By.CSS_SELECTOR, "input[type='checkbox']")
+                        if not input_element.is_selected():
+                            log_and_capture(f"Checkbox not selected, trying again: {selector}")
+                            driver.execute_script("arguments[0].click();", input_element)
+                            time.sleep(1)
+                            log_and_capture(f"Checkbox state after second click: {input_element.is_selected()}")
+                    
+                    # Wait longer for dialog to stabilize after all selections
+                    time.sleep(3)
                     
                     # Verify dialog is still present and visible
                     dialog = wait.until(
@@ -317,54 +330,33 @@ async def verify_pid_authentication():
                         lambda driver: select_button.find_element(By.CSS_SELECTOR, ".mat-badge-content")
                     )
                     
-                    # Wait for badge count to update with increased timeout and additional checks
-                    max_attempts = 10  # Increased from 5 to 10
+                    # Wait for badge count to update with increased timeout
+                    max_attempts = 10
                     attempt = 0
                     while attempt < max_attempts:
-                        # Get the badge text and log it
                         badge_text = badge.text.strip() or "0"
                         log_and_capture(f"Select button badge text content: '{badge_text}'")
                         
-                        # Check if badge text is numeric and equals 3
-                        if badge_text.isdigit() and int(badge_text) == 3:
-                            log_and_capture("Verified badge count is 3")
+                        if badge_text == "3":
                             break
                             
-                        # Add a small delay between attempts
-                        time.sleep(0.5)
-                        attempt += 1
+                        # Try clicking the button to force update
+                        try:
+                            select_button.click()
+                            log_and_capture("Clicked Select button to force update")
+                        except:
+                            log_and_capture("Could not click Select button during retry")
                         
-                        # Force a DOM update by clicking the button
-                        if attempt % 2 == 0:  # Every other attempt
-                            try:
-                                select_button.click()
-                                log_and_capture("Clicked Select button to force DOM update")
-                            except:
-                                log_and_capture("Could not click Select button during retry")
+                        time.sleep(1)
+                        attempt += 1
                     
-                    # Final verification
-                    final_badge_text = badge.text.strip() or "0"
-                    if not (final_badge_text.isdigit() and int(final_badge_text) == 3):
-                        # Log the current state of the button and badge
-                        log_and_capture(f"Final badge state - Text: '{final_badge_text}', Button HTML: {select_button.get_attribute('outerHTML')}")
+                    if badge_text != "3":
                         raise Exception(f"Badge count did not update to 3 after {max_attempts} attempts")
                     
-                    # Try multiple approaches to click the button
-                    try:
-                        # First try regular click
-                        select_button.click()
-                    except:
-                        try:
-                            # Try JavaScript click
-                            driver.execute_script("arguments[0].click();", select_button)
-                        except:
-                            try:
-                                # Try ActionChains click
-                                from selenium.webdriver.common.action_chains import ActionChains
-                                ActionChains(driver).move_to_element(select_button).click().perform()
-                            except Exception as e:
-                                raise Exception(f"All click attempts failed: {str(e)}")
+                    log_and_capture("Verified badge count is 3")
                     
+                    # Click the Select button to confirm
+                    select_button.click()
                     log_and_capture("Clicked Select button to confirm attribute selection")
                     
                 except Exception as e:
