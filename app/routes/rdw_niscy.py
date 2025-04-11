@@ -311,9 +311,13 @@ async def verify_pid_authentication():
                     )
                     log_and_capture("Found Select button with badge")
                     
-                    # Get the badge that's actually showing the count
-                    badge = select_button.find_element(By.CSS_SELECTOR, ".mat-badge-content")
-                    badge_text = badge.text.strip()
+                    # Wait for badge content to be visible and contain text
+                    badge = wait.until(
+                        lambda driver: select_button.find_element(By.CSS_SELECTOR, ".mat-badge-content")
+                    )
+                    badge_text = wait.until(
+                        lambda driver: badge.text.strip() or "0"
+                    )
                     log_and_capture(f"Select button badge text content: '{badge_text}'")
                     
                     # Verify the badge count
