@@ -254,43 +254,66 @@ async def verify_pid_authentication():
                 select_attrs_button.click()
                 log_and_capture("Opened attribute selection dialog")
                 
-                # Wait for dialog to appear
+                # Wait for dialog to appear and be fully loaded
                 time.sleep(1)
                 
+                # Verify dialog is present
+                dialog = wait.until(
+                    EC.presence_of_element_located(
+                        (By.CSS_SELECTOR, "mat-dialog-container")
+                    )
+                )
+                log_and_capture("Dialog container found")
+                
                 # 6. Select the required checkboxes
-                family_name_checkbox = wait.until(
-                    EC.element_to_be_clickable(
-                        (By.XPATH, "//mat-checkbox[.//label[contains(text(), 'Family name')]]")
+                try:
+                    family_name_checkbox = wait.until(
+                        EC.element_to_be_clickable(
+                            (By.XPATH, "//mat-checkbox[.//label[contains(text(), 'Family name')]]")
+                        )
                     )
-                )
-                family_name_checkbox.click()
-                log_and_capture("Selected Family name checkbox")
-                
-                given_name_checkbox = wait.until(
-                    EC.element_to_be_clickable(
-                        (By.XPATH, "//mat-checkbox[.//label[contains(text(), 'Given name')]]")
+                    family_name_checkbox.click()
+                    log_and_capture("Selected Family name checkbox")
+                    
+                    given_name_checkbox = wait.until(
+                        EC.element_to_be_clickable(
+                            (By.XPATH, "//mat-checkbox[.//label[contains(text(), 'Given name')]]")
+                        )
                     )
-                )
-                given_name_checkbox.click()
-                log_and_capture("Selected Given name checkbox")
-                
-                birthdate_checkbox = wait.until(
-                    EC.element_to_be_clickable(
-                        (By.XPATH, "//mat-checkbox[.//label[contains(text(), 'Birthdate')]]")
+                    given_name_checkbox.click()
+                    log_and_capture("Selected Given name checkbox")
+                    
+                    birthdate_checkbox = wait.until(
+                        EC.element_to_be_clickable(
+                            (By.XPATH, "//mat-checkbox[.//label[contains(text(), 'Birthdate')]]")
+                        )
                     )
-                )
-                birthdate_checkbox.click()
-                log_and_capture("Selected Birthdate checkbox")
-                
-                # 7. Click the Select button
-                select_button = wait.until(
-                    EC.element_to_be_clickable(
-                        (By.XPATH, "//button[contains(@class, 'mat-dialog-close') and .//span[contains(text(), 'Select')]]")
+                    birthdate_checkbox.click()
+                    log_and_capture("Selected Birthdate checkbox")
+                    
+                    # Verify dialog is still present before clicking Select
+                    if not dialog.is_displayed():
+                        raise Exception("Dialog disappeared before clicking Select button")
+                    
+                    # 7. Click the Select button
+                    select_button = wait.until(
+                        EC.element_to_be_clickable(
+                            (By.XPATH, "//button[contains(@class, 'mat-dialog-close') and .//span[contains(text(), 'Select')]]")
+                        )
                     )
-                )
-                select_button.click()
-                log_and_capture("Clicked Select button to confirm attribute selection")
-                
+                    select_button.click()
+                    log_and_capture("Clicked Select button to confirm attribute selection")
+                    
+                except Exception as e:
+                    log_and_capture(f"Error during dialog interaction: {str(e)}")
+                    # Log dialog state
+                    try:
+                        dialog_html = dialog.get_attribute('outerHTML')
+                        log_and_capture(f"Dialog HTML: {dialog_html}")
+                    except:
+                        log_and_capture("Could not get dialog HTML")
+                    raise
+
             except Exception as e:
                 log_and_capture(f"Error in interaction: {str(e)}")
                 # Log more details about the current state
