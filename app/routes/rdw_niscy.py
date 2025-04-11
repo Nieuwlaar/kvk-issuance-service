@@ -281,7 +281,8 @@ async def verify_pid_authentication():
                         # Click the actual input element inside the checkbox
                         input_element = checkbox.find_element(By.CSS_SELECTOR, "input[type='checkbox']")
                         if not input_element.is_selected():
-                            input_element.click()
+                            # Use JavaScript click to ensure proper event triggering
+                            driver.execute_script("arguments[0].click();", input_element)
                             log_and_capture(f"Clicked checkbox: {selector}")
                             # Add a small delay after each click
                             time.sleep(1)
@@ -315,18 +316,22 @@ async def verify_pid_authentication():
                     badge = wait.until(
                         lambda driver: select_button.find_element(By.CSS_SELECTOR, ".mat-badge-content")
                     )
-                    badge_text = wait.until(
-                        lambda driver: badge.text.strip() or "0"
-                    )
-                    log_and_capture(f"Select button badge text content: '{badge_text}'")
                     
-                    # Verify the badge count
-                    if not badge_text.isdigit():
-                        raise Exception(f"Badge text '{badge_text}' is not a valid number")
+                    # Wait for badge count to update
+                    max_attempts = 5
+                    attempt = 0
+                    while attempt < max_attempts:
+                        badge_text = badge.text.strip() or "0"
+                        log_and_capture(f"Select button badge text content: '{badge_text}'")
+                        
+                        if badge_text == "3":
+                            break
+                            
+                        time.sleep(1)
+                        attempt += 1
                     
-                    badge_count = int(badge_text)
-                    if badge_count != 3:
-                        raise Exception(f"Expected 3 selected items, but badge shows {badge_count}")
+                    if badge_text != "3":
+                        raise Exception(f"Badge count did not update to 3 after {max_attempts} attempts")
                     
                     log_and_capture("Verified badge count is 3")
                     
