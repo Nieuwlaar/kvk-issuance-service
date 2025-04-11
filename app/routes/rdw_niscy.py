@@ -317,23 +317,37 @@ async def verify_pid_authentication():
                         lambda driver: select_button.find_element(By.CSS_SELECTOR, ".mat-badge-content")
                     )
                     
-                    # Wait for badge count to update
-                    max_attempts = 5
+                    # Wait for badge count to update with increased timeout and additional checks
+                    max_attempts = 10  # Increased from 5 to 10
                     attempt = 0
                     while attempt < max_attempts:
+                        # Get the badge text and log it
                         badge_text = badge.text.strip() or "0"
                         log_and_capture(f"Select button badge text content: '{badge_text}'")
                         
-                        if badge_text == "3":
+                        # Check if badge text is numeric and equals 3
+                        if badge_text.isdigit() and int(badge_text) == 3:
+                            log_and_capture("Verified badge count is 3")
                             break
                             
-                        time.sleep(1)
+                        # Add a small delay between attempts
+                        time.sleep(0.5)
                         attempt += 1
+                        
+                        # Force a DOM update by clicking the button
+                        if attempt % 2 == 0:  # Every other attempt
+                            try:
+                                select_button.click()
+                                log_and_capture("Clicked Select button to force DOM update")
+                            except:
+                                log_and_capture("Could not click Select button during retry")
                     
-                    if badge_text != "3":
+                    # Final verification
+                    final_badge_text = badge.text.strip() or "0"
+                    if not (final_badge_text.isdigit() and int(final_badge_text) == 3):
+                        # Log the current state of the button and badge
+                        log_and_capture(f"Final badge state - Text: '{final_badge_text}', Button HTML: {select_button.get_attribute('outerHTML')}")
                         raise Exception(f"Badge count did not update to 3 after {max_attempts} attempts")
-                    
-                    log_and_capture("Verified badge count is 3")
                     
                     # Try multiple approaches to click the button
                     try:
