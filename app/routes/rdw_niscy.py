@@ -9,6 +9,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.service import Service
 import time
+from typing import List
 
 # Create router with prefix
 router = APIRouter()
@@ -114,8 +115,14 @@ async def create_power_of_representation(request: PowerOfRepresentationRequest):
 
 @router.get("/pid-authentication")
 async def verify_pid_authentication():
+    # List to capture log messages for the response
+    log_messages: List[str] = []
+    def log_and_capture(message: str):
+        logging.info(message)
+        log_messages.append(message)
+
     try:
-        logging.info(f"Received PID Authentication request")
+        log_and_capture(f"Received PID Authentication request")
 
         # Initialize Chrome with options for visibility
         options = webdriver.ChromeOptions()
@@ -156,35 +163,103 @@ async def verify_pid_authentication():
         service = Service("/usr/bin/chromedriver")
         driver = webdriver.Chrome(service=service, options=options)
         driver.set_page_load_timeout(30)
+        # Increase wait time slightly for potentially slower interactions
+        wait = WebDriverWait(driver, 10)
 
         try:
             # Navigate to the verifier website
-            logging.info("Navigating to https://eudi-verifier.nieuwlaar.com/home")
+            nav_msg = "Navigating to https://eudi-verifier.nieuwlaar.com/home"
+            log_and_capture(nav_msg)
             driver.get("https://eudi-verifier.nieuwlaar.com/home")
+            log_and_capture("Navigation complete.")
 
-            # It's generally better to wait for a specific element than using time.sleep
-            # If you need to check something on the page, use WebDriverWait
-            # For example:
-            # wait = WebDriverWait(driver, 10)
-            # wait.until(EC.presence_of_element_located((By.TAG_NAME, "body"))) # Wait for body tag to be present
+            # --- Interaction Steps ---
 
-            # Removing the sleep unless it's specifically needed for manual observation
-            # logging.info("Page loaded. Pausing for 10 seconds...")
-            # time.sleep(10)
+            # 1. Click "Person Identification Data (PID)"
+            #    Using XPath to find a button/link containing the text. Adjust if needed.
+            try:
+                pid_element_xpath = "//*[self::a or self::button][contains(normalize-space(), 'Person Identification Data (PID)')]"
+                pid_button = wait.until(EC.element_to_be_clickable((By.XPATH, pid_element_xpath)))
+                log_and_capture("Found 'Person Identification Data (PID)' element.")
+                pid_button.click()
+                log_and_capture("Clicked 'Person Identification Data (PID)'.")
+            except Exception as e:
+                log_and_capture(f"Error clicking PID element: {e}")
+                raise # Re-raise exception to stop execution and report error
 
-            # Instead of pausing, you might want to return some confirmation or check page content
-            logging.info("Successfully navigated to the verifier page.")
+            # 2. Select specific attributes (Example: given_name, family_name)
+            #    Assuming checkboxes with these names. Adjust selectors if needed.
+            try:
+                attributes_to_select = ["given_name", "family_name", "birth_date"] # Example attributes
+                for attr_name in attributes_to_select:
+                     # Wait for the checkbox to be present first
+                    attr_checkbox = wait.until(EC.presence_of_element_located((By.NAME, attr_name)))
+                    # Check if it's not already selected before clicking
+                    if not attr_checkbox.is_selected():
+                         # Scroll into view if necessary, then click
+                        driver.execute_script("arguments[0].scrollIntoView(true);", attr_checkbox)
+                        time.sleep(0.2) # Small pause after scroll before click
+                        attr_checkbox.click()
+                        log_and_capture(f"Selected attribute: {attr_name}")
+                    else:
+                         log_and_capture(f"Attribute already selected: {attr_name}")
+            except Exception as e:
+                log_and_capture(f"Error selecting attributes: {e}")
+                raise
+
+            # 3. Choose the "mso_mdoc" format
+            #    Assuming a radio button with value 'mso_mdoc'. Adjust selector if needed.
+            try:
+                mso_mdoc_radio_selector = "input[type='radio'][value='mso_mdoc']"
+                mso_mdoc_radio = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, mso_mdoc_radio_selector)))
+                # Scroll into view if necessary, then click
+                driver.execute_script("arguments[0].scrollIntoView(true);", mso_mdoc_radio)
+                time.sleep(0.2) # Small pause after scroll before click
+                if not mso_mdoc_radio.is_selected():
+                    mso_mdoc_radio.click()
+                    log_and_capture("Selected format: mso_mdoc")
+                else:
+                    log_and_capture("Format mso_mdoc already selected.")
+            except Exception as e:
+                log_and_capture(f"Error selecting mso_mdoc format: {e}")
+                raise
+
+            # 4. Click a submit button (if applicable)
+            #    Assuming a generic submit button. Adjust selector if needed.
+            try:
+                # Try finding a submit button first
+                submit_button_selector = "input[type='submit'], button[type='submit']"
+                submit_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, submit_button_selector)))
+                log_and_capture("Found submit button.")
+                 # Scroll into view if necessary, then click
+                driver.execute_script("arguments[0].scrollIntoView(true);", submit_button)
+                time.sleep(0.2) # Small pause after scroll before click
+                submit_button.click()
+                log_and_capture("Clicked submit button.")
+                # Optional: Wait for next page/element after submission if needed
+                # wait.until(...)
+            except Exception as e:
+                # It's possible there isn't an explicit submit button for this flow
+                log_and_capture(f"Could not find or click a submit button (maybe not needed?): {e}")
+                # Decide if this should raise an error or just be logged
+
+
+            log_and_capture("Interaction steps completed.")
             return {
                 "status": "success",
-                "message": "Successfully navigated to the verifier URL." # Updated message
+                "message": "Successfully performed interaction steps.",
+                "logs": log_messages # Return the captured logs
             }
 
         finally:
-            logging.info("Closing browser.")
+            log_and_capture("Closing browser.") # Capture this log too
             driver.quit()
 
     except Exception as e:
-        logging.error(f"Error in verify_pid_authentication: {str(e)}")
-        # Log the stack trace for better debugging
+        err_msg = f"Error in verify_pid_authentication: {str(e)}"
+        logging.error(err_msg)
         logging.exception("Stack trace:")
-        raise HTTPException(status_code=500, detail=str(e))
+        # Add the final error to the logs if possible
+        log_messages.append(f"ERROR: {err_msg}")
+        # Return logs captured so far along with the error
+        raise HTTPException(status_code=500, detail={"error": str(e), "logs": log_messages})
