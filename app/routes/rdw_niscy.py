@@ -182,6 +182,7 @@ async def verify_pid_authentication():
                 pid_button = wait.until(EC.element_to_be_clickable((By.XPATH, pid_element_xpath)))
                 log_and_capture("Found PID panel")
                 pid_button.click()
+                log_and_capture("Expanding PID panel")
                 
                 # Wait for the panel to expand and be fully rendered
                 time.sleep(1)
@@ -192,12 +193,14 @@ async def verify_pid_authentication():
                         (By.XPATH, "//mat-expansion-panel-header[contains(@class, 'mat-expanded')]")
                     )
                 )
+                log_and_capture("PID panel expanded successfully")
                 
                 # 2. Click the "attributes by" select dropdown
                 attributes_select = wait.until(
                     EC.element_to_be_clickable((By.ID, "mat-select-0"))
                 )
                 attributes_select.click()
+                log_and_capture("Opened attributes dropdown")
                 
                 # Wait for the options to appear
                 time.sleep(0.5)
@@ -209,6 +212,7 @@ async def verify_pid_authentication():
                     )
                 )
                 specific_attrs_option.click()
+                log_and_capture("Selected 'Specific attributes' option")
                 
                 # Wait for the selection to be applied
                 time.sleep(0.5)
@@ -218,6 +222,7 @@ async def verify_pid_authentication():
                     EC.element_to_be_clickable((By.ID, "mat-select-1"))
                 )
                 format_select.click()
+                log_and_capture("Opened format dropdown")
                 
                 # Wait for the options to appear
                 time.sleep(0.5)
@@ -229,6 +234,7 @@ async def verify_pid_authentication():
                     )
                 )
                 mso_mdoc_option.click()
+                log_and_capture("Selected 'mso_mdoc' format")
                 
                 # 4. Click the "Next" button
                 next_button = wait.until(
@@ -237,7 +243,53 @@ async def verify_pid_authentication():
                     )
                 )
                 next_button.click()
-                log_and_capture("Clicked Next button")
+                log_and_capture("Clicked Next button to proceed")
+                
+                # 5. Click the "Select Attributes" button
+                select_attrs_button = wait.until(
+                    EC.element_to_be_clickable(
+                        (By.CSS_SELECTOR, "button[matbadgecolor='accent']")
+                    )
+                )
+                select_attrs_button.click()
+                log_and_capture("Opened attribute selection dialog")
+                
+                # Wait for dialog to appear
+                time.sleep(1)
+                
+                # 6. Select the required checkboxes
+                family_name_checkbox = wait.until(
+                    EC.element_to_be_clickable(
+                        (By.XPATH, "//mat-checkbox[.//label[contains(text(), 'Family name')]]")
+                    )
+                )
+                family_name_checkbox.click()
+                log_and_capture("Selected Family name checkbox")
+                
+                given_name_checkbox = wait.until(
+                    EC.element_to_be_clickable(
+                        (By.XPATH, "//mat-checkbox[.//label[contains(text(), 'Given name')]]")
+                    )
+                )
+                given_name_checkbox.click()
+                log_and_capture("Selected Given name checkbox")
+                
+                birthdate_checkbox = wait.until(
+                    EC.element_to_be_clickable(
+                        (By.XPATH, "//mat-checkbox[.//label[contains(text(), 'Birthdate')]]")
+                    )
+                )
+                birthdate_checkbox.click()
+                log_and_capture("Selected Birthdate checkbox")
+                
+                # 7. Click the Select button
+                select_button = wait.until(
+                    EC.element_to_be_clickable(
+                        (By.XPATH, "//button[contains(@class, 'mat-dialog-close') and .//span[contains(text(), 'Select')]]")
+                    )
+                )
+                select_button.click()
+                log_and_capture("Clicked Select button to confirm attribute selection")
                 
             except Exception as e:
                 log_and_capture(f"Error in interaction: {str(e)}")
@@ -255,7 +307,7 @@ async def verify_pid_authentication():
                     log_and_capture("Could not list available elements")
                 raise
 
-            log_and_capture("Interaction steps completed successfully")
+            log_and_capture("All interaction steps completed successfully")
             return {
                 "status": "success",
                 "message": "Successfully performed interaction steps.",
