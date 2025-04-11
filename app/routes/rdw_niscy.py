@@ -284,7 +284,7 @@ async def verify_pid_authentication():
                             input_element.click()
                             log_and_capture(f"Clicked checkbox: {selector}")
                             # Add a small delay after each click
-                            time.sleep(0.5)
+                            time.sleep(1)
                         else:
                             log_and_capture(f"Checkbox already selected: {selector}")
                         
@@ -303,6 +303,16 @@ async def verify_pid_authentication():
                     if not dialog.is_displayed():
                         raise Exception("Dialog is not visible after checkbox selections")
                     
+                    # Find all badge elements and log their details
+                    badges = driver.find_elements(By.CSS_SELECTOR, ".mat-badge-content")
+                    log_and_capture(f"Found {len(badges)} badge elements")
+                    for i, badge in enumerate(badges):
+                        log_and_capture(f"Badge {i}:")
+                        log_and_capture(f"  ID: {badge.get_attribute('id')}")
+                        log_and_capture(f"  Text: '{badge.text}'")
+                        log_and_capture(f"  Classes: {badge.get_attribute('class')}")
+                        log_and_capture(f"  Parent: {badge.find_element(By.XPATH, '..').get_attribute('outerHTML')}")
+                    
                     # Find the Select button with the badge
                     select_button = wait.until(
                         EC.element_to_be_clickable(
@@ -310,11 +320,11 @@ async def verify_pid_authentication():
                         )
                     )
                     
-                    # Log the badge element details
+                    # Get the badge that's actually showing the count
                     badge = select_button.find_element(By.CSS_SELECTOR, ".mat-badge-content")
-                    log_and_capture(f"Badge element found: {badge.get_attribute('outerHTML')}")
-                    log_and_capture(f"Badge text content: '{badge.text}'")
-                    log_and_capture(f"Badge class: {badge.get_attribute('class')}")
+                    log_and_capture(f"Select button badge element found: {badge.get_attribute('outerHTML')}")
+                    log_and_capture(f"Select button badge text content: '{badge.text}'")
+                    log_and_capture(f"Select button badge class: {badge.get_attribute('class')}")
                     
                     if badge.text != "3":
                         raise Exception(f"Expected 3 selected items, but badge shows '{badge.text}'")
