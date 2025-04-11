@@ -282,10 +282,17 @@ async def verify_pid_authentication():
                         input_element = checkbox.find_element(By.CSS_SELECTOR, "input[type='checkbox']")
                         if not input_element.is_selected():
                             input_element.click()
-                        log_and_capture(f"Selected checkbox: {selector}")
+                            log_and_capture(f"Clicked checkbox: {selector}")
+                            # Add a small delay after each click
+                            time.sleep(0.5)
+                        else:
+                            log_and_capture(f"Checkbox already selected: {selector}")
+                        
+                        # Log the current state of the checkbox
+                        log_and_capture(f"Checkbox state after click: {input_element.is_selected()}")
                     
-                    # Wait for dialog to stabilize after checkbox selections
-                    time.sleep(1)
+                    # Wait longer for dialog to stabilize after checkbox selections
+                    time.sleep(2)
                     
                     # Verify dialog is still present and visible
                     dialog = wait.until(
@@ -303,10 +310,14 @@ async def verify_pid_authentication():
                         )
                     )
                     
-                    # Verify the badge shows 3 selected items
+                    # Log the badge element details
                     badge = select_button.find_element(By.CSS_SELECTOR, ".mat-badge-content")
+                    log_and_capture(f"Badge element found: {badge.get_attribute('outerHTML')}")
+                    log_and_capture(f"Badge text content: '{badge.text}'")
+                    log_and_capture(f"Badge class: {badge.get_attribute('class')}")
+                    
                     if badge.text != "3":
-                        raise Exception(f"Expected 3 selected items, but badge shows {badge.text}")
+                        raise Exception(f"Expected 3 selected items, but badge shows '{badge.text}'")
                     
                     # Try multiple approaches to click the button
                     try:
