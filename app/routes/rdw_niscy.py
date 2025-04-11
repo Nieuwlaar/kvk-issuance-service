@@ -322,9 +322,7 @@ async def verify_pid_authentication():
                     
                     # Get the badge that's actually showing the count
                     badge = select_button.find_element(By.CSS_SELECTOR, ".mat-badge-content")
-                    log_and_capture(f"Select button badge element found: {badge.get_attribute('outerHTML')}")
                     log_and_capture(f"Select button badge text content: '{badge.text}'")
-                    log_and_capture(f"Select button badge class: {badge.get_attribute('class')}")
                     
                     if badge.text != "3":
                         raise Exception(f"Expected 3 selected items, but badge shows '{badge.text}'")
