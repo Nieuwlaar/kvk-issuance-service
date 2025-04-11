@@ -303,29 +303,28 @@ async def verify_pid_authentication():
                     if not dialog.is_displayed():
                         raise Exception("Dialog is not visible after checkbox selections")
                     
-                    # Find all badge elements and log their details
-                    badges = driver.find_elements(By.CSS_SELECTOR, ".mat-badge-content")
-                    log_and_capture(f"Found {len(badges)} badge elements")
-                    for i, badge in enumerate(badges):
-                        log_and_capture(f"Badge {i}:")
-                        log_and_capture(f"  ID: {badge.get_attribute('id')}")
-                        log_and_capture(f"  Text: '{badge.text}'")
-                        log_and_capture(f"  Classes: {badge.get_attribute('class')}")
-                        log_and_capture(f"  Parent: {badge.find_element(By.XPATH, '..').get_attribute('outerHTML')}")
-                    
                     # Find the Select button with the badge
                     select_button = wait.until(
                         EC.element_to_be_clickable(
                             (By.CSS_SELECTOR, "button.mat-badge-accent")
                         )
                     )
+                    log_and_capture("Found Select button with badge")
                     
                     # Get the badge that's actually showing the count
                     badge = select_button.find_element(By.CSS_SELECTOR, ".mat-badge-content")
-                    log_and_capture(f"Select button badge text content: '{badge.text}'")
+                    badge_text = badge.text.strip()
+                    log_and_capture(f"Select button badge text content: '{badge_text}'")
                     
-                    if badge.text != "3":
-                        raise Exception(f"Expected 3 selected items, but badge shows '{badge.text}'")
+                    # Verify the badge count
+                    if not badge_text.isdigit():
+                        raise Exception(f"Badge text '{badge_text}' is not a valid number")
+                    
+                    badge_count = int(badge_text)
+                    if badge_count != 3:
+                        raise Exception(f"Expected 3 selected items, but badge shows {badge_count}")
+                    
+                    log_and_capture("Verified badge count is 3")
                     
                     # Try multiple approaches to click the button
                     try:
