@@ -177,26 +177,62 @@ async def verify_pid_authentication():
 
             # 1. Click "Person Identification Data (PID)"
             try:
-                # Look for the mat-panel-title element
+                # Look for the mat-panel-title element within the expansion panel
                 pid_element_xpath = "//mat-panel-title[contains(normalize-space(), 'Person Identification Data (PID)')]"
                 pid_button = wait.until(EC.element_to_be_clickable((By.XPATH, pid_element_xpath)))
                 log_and_capture("Found PID panel title")
                 pid_button.click()
                 log_and_capture("Clicked PID panel")
                 
-                # Wait a moment for panel expansion
-                time.sleep(0.5)
+                # Wait for the panel to expand and be fully rendered
+                time.sleep(1)
+                
+                # Verify the panel is expanded
+                expanded_panel = wait.until(
+                    EC.presence_of_element_located(
+                        (By.XPATH, "//mat-expansion-panel-header[contains(@class, 'mat-expanded')]")
+                    )
+                )
+                log_and_capture("Panel is expanded")
                 
                 # 2. Click the "Specific attributes" option
-                specific_attrs_xpath = "//span[contains(@class, 'mdc-list-item__primary-text') and contains(text(), 'Specific attributes')]"
-                specific_attrs = wait.until(EC.element_to_be_clickable((By.XPATH, specific_attrs_xpath)))
+                # First find the expanded panel content
+                panel_content = wait.until(
+                    EC.presence_of_element_located(
+                        (By.XPATH, "//mat-expansion-panel[.//mat-panel-title[contains(text(), 'Person Identification Data (PID)')]]//div[contains(@class, 'mat-expansion-panel-content')]")
+                    )
+                )
+                log_and_capture("Found expanded panel content")
+                
+                # Now look for the specific attributes option within the expanded content
+                specific_attrs = wait.until(
+                    EC.element_to_be_clickable(
+                        (By.XPATH, ".//span[contains(@class, 'mdc-list-item__primary-text') and contains(text(), 'Specific attributes')]")
+                    )
+                )
                 log_and_capture("Found 'Specific attributes' option")
+                
+                # Scroll the element into view and click
+                driver.execute_script("arguments[0].scrollIntoView(true);", specific_attrs)
+                time.sleep(0.5)  # Wait after scroll
                 specific_attrs.click()
                 log_and_capture("Clicked 'Specific attributes' option")
                 
             except Exception as e:
                 log_and_capture(f"Error in initial interaction: {str(e)}")
-                log_and_capture(f"Current page source: {driver.page_source[:500]}...")  # Log first 500 chars of page source
+                # Log more details about the current state
+                log_and_capture(f"Current page source: {driver.page_source[:1000]}...")
+                log_and_capture("Available elements in expanded panel:")
+                try:
+                    # Look for any elements in the expanded panel
+                    elements = driver.find_elements(
+                        By.XPATH,
+                        "//mat-expansion-panel[.//mat-panel-title[contains(text(), 'Person Identification Data (PID)')]]//div[contains(@class, 'mat-expansion-panel-content')]//*"
+                    )
+                    for elem in elements:
+                        log_and_capture(f"Found element: {elem.get_attribute('outerHTML')}")
+                except:
+                    log_and_capture("Could not list available elements")
                 raise
 
             # 3. Choose the "mso_mdoc" format
