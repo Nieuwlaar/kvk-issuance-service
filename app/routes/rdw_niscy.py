@@ -180,9 +180,8 @@ async def verify_pid_authentication():
                 # Look for the mat-panel-title element within the expansion panel
                 pid_element_xpath = "//mat-panel-title[contains(normalize-space(), 'Person Identification Data (PID)')]"
                 pid_button = wait.until(EC.element_to_be_clickable((By.XPATH, pid_element_xpath)))
-                log_and_capture("Found PID panel title")
+                log_and_capture("Found PID panel")
                 pid_button.click()
-                log_and_capture("Clicked PID panel")
                 
                 # Wait for the panel to expand and be fully rendered
                 time.sleep(1)
@@ -193,36 +192,57 @@ async def verify_pid_authentication():
                         (By.XPATH, "//mat-expansion-panel-header[contains(@class, 'mat-expanded')]")
                     )
                 )
-                log_and_capture("Panel is expanded")
                 
-                # 2. Click the "Specific attributes" option
-                # First find the expanded panel content
-                panel_content = wait.until(
-                    EC.presence_of_element_located(
-                        (By.XPATH, "//mat-expansion-panel[.//mat-panel-title[contains(text(), 'Person Identification Data (PID)')]]//div[contains(@class, 'mat-expansion-panel-content')]")
-                    )
+                # 2. Click the "attributes by" select dropdown
+                attributes_select = wait.until(
+                    EC.element_to_be_clickable((By.ID, "mat-select-0"))
                 )
-                log_and_capture("Found expanded panel content")
+                attributes_select.click()
                 
-                # Now look for the specific attributes option within the expanded content
-                specific_attrs = wait.until(
+                # Wait for the options to appear
+                time.sleep(0.5)
+                
+                # Click the "Specific attributes" option in the dropdown
+                specific_attrs_option = wait.until(
                     EC.element_to_be_clickable(
-                        (By.XPATH, ".//span[contains(@class, 'mdc-list-item__primary-text') and contains(text(), 'Specific attributes')]")
+                        (By.XPATH, "//mat-option[contains(normalize-space(), 'Specific attributes')]")
                     )
                 )
-                log_and_capture("Found 'Specific attributes' option")
+                specific_attrs_option.click()
                 
-                # Scroll the element into view and click
-                driver.execute_script("arguments[0].scrollIntoView(true);", specific_attrs)
-                time.sleep(0.5)  # Wait after scroll
-                specific_attrs.click()
-                log_and_capture("Clicked 'Specific attributes' option")
+                # Wait for the selection to be applied
+                time.sleep(0.5)
+                
+                # 3. Click the "format" select dropdown
+                format_select = wait.until(
+                    EC.element_to_be_clickable((By.ID, "mat-select-1"))
+                )
+                format_select.click()
+                
+                # Wait for the options to appear
+                time.sleep(0.5)
+                
+                # Click the "mso_mdoc" option in the dropdown
+                mso_mdoc_option = wait.until(
+                    EC.element_to_be_clickable(
+                        (By.XPATH, "//mat-option[contains(normalize-space(), 'mso_mdoc')]")
+                    )
+                )
+                mso_mdoc_option.click()
+                
+                # 4. Click the "Next" button
+                next_button = wait.until(
+                    EC.element_to_be_clickable(
+                        (By.CSS_SELECTOR, "button.mat-stepper-next")
+                    )
+                )
+                next_button.click()
+                log_and_capture("Clicked Next button")
                 
             except Exception as e:
-                log_and_capture(f"Error in initial interaction: {str(e)}")
+                log_and_capture(f"Error in interaction: {str(e)}")
                 # Log more details about the current state
                 log_and_capture(f"Current page source: {driver.page_source[:1000]}...")
-                log_and_capture("Available elements in expanded panel:")
                 try:
                     # Look for any elements in the expanded panel
                     elements = driver.find_elements(
@@ -235,48 +255,11 @@ async def verify_pid_authentication():
                     log_and_capture("Could not list available elements")
                 raise
 
-            # 3. Choose the "mso_mdoc" format
-            #    Assuming a radio button with value 'mso_mdoc'. Adjust selector if needed.
-            try:
-                mso_mdoc_radio_selector = "input[type='radio'][value='mso_mdoc']"
-                mso_mdoc_radio = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, mso_mdoc_radio_selector)))
-                # Scroll into view if necessary, then click
-                driver.execute_script("arguments[0].scrollIntoView(true);", mso_mdoc_radio)
-                time.sleep(0.2) # Small pause after scroll before click
-                if not mso_mdoc_radio.is_selected():
-                    mso_mdoc_radio.click()
-                    log_and_capture("Selected format: mso_mdoc")
-                else:
-                    log_and_capture("Format mso_mdoc already selected.")
-            except Exception as e:
-                log_and_capture(f"Error selecting mso_mdoc format: {e}")
-                raise
-
-            # 4. Click a submit button (if applicable)
-            #    Assuming a generic submit button. Adjust selector if needed.
-            try:
-                # Try finding a submit button first
-                submit_button_selector = "input[type='submit'], button[type='submit']"
-                submit_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, submit_button_selector)))
-                log_and_capture("Found submit button.")
-                 # Scroll into view if necessary, then click
-                driver.execute_script("arguments[0].scrollIntoView(true);", submit_button)
-                time.sleep(0.2) # Small pause after scroll before click
-                submit_button.click()
-                log_and_capture("Clicked submit button.")
-                # Optional: Wait for next page/element after submission if needed
-                # wait.until(...)
-            except Exception as e:
-                # It's possible there isn't an explicit submit button for this flow
-                log_and_capture(f"Could not find or click a submit button (maybe not needed?): {e}")
-                # Decide if this should raise an error or just be logged
-
-
-            log_and_capture("Interaction steps completed.")
+            log_and_capture("Interaction steps completed successfully")
             return {
                 "status": "success",
                 "message": "Successfully performed interaction steps.",
-                "logs": log_messages # Return the captured logs
+                "logs": log_messages
             }
 
         finally:
