@@ -121,6 +121,7 @@ async def create_power_of_representation(request: PowerOfRepresentationRequest):
         logging.error(f"Error in create_power_of_representation: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+# this version works
 @router.get("/pid-extraction/{request_id}")
 async def extract_pid_data(request_id: str):
     # Check if we have an active session for this request
