@@ -267,80 +267,68 @@ async def verify_pid_authentication():
             try:
                 log_and_capture("Starting to monitor for presentation results")
                 
-                # Wait for the presentation results to appear
+                # Wait for the presentation results to appear with a longer timeout
                 log_and_capture("Waiting for vc-presentations-results element")
-                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "vc-presentations-results")))
-                log_and_capture("Found vc-presentations-results element")
+                wait = WebDriverWait(driver, 60)  # Increased timeout to 60 seconds
                 
-                # Wait for any button that might be the View Content button
-                log_and_capture("Looking for any clickable buttons")
-                buttons = driver.find_elements(By.CSS_SELECTOR, "button")
-                log_and_capture(f"Found {len(buttons)} buttons")
-                
-                # Try to find and click any button that might open the dialog
-                for button in buttons:
+                try:
+                    # First try to find the results container
+                    results_container = wait.until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, "vc-presentations-results"))
+                    )
+                    log_and_capture("Found vc-presentations-results element")
+                    
+                    # Get the entire page source and save it
+                    page_source = driver.page_source
+                    log_and_capture("Captured page source")
+                    
+                    # Try to find any elements that might contain the data
+                    all_elements = driver.find_elements(By.XPATH, "//*")
+                    element_data = []
+                    
+                    for element in all_elements:
+                        try:
+                            if element.is_displayed():
+                                tag = element.tag_name
+                                text = element.text
+                                if text.strip():
+                                    element_data.append({
+                                        "tag": tag,
+                                        "text": text,
+                                        "class": element.get_attribute("class"),
+                                        "id": element.get_attribute("id")
+                                    })
+                        except:
+                            continue
+                    
+                    # Update the JSON file with all the data we found
+                    request_data["status"] = "success"
+                    request_data["presentation_data"] = {
+                        "page_source": page_source,
+                        "visible_elements": element_data,
+                        "capture_timestamp": datetime.now().isoformat()
+                    }
+                    
+                    with open(file_path, "w") as f:
+                        json.dump(request_data, f, indent=4)
+                    
+                    log_and_capture("Successfully updated authentication request with presentation data")
+                    
+                except Exception as e:
+                    log_and_capture(f"Error during data capture: {str(e)}")
+                    # Save the current page source even if we hit an error
                     try:
-                        button_text = button.text
-                        log_and_capture(f"Found button with text: {button_text}")
-                        if button.is_displayed() and button.is_enabled():
-                            log_and_capture(f"Clicking button: {button_text}")
-                            button.click()
-                            break
-                    except Exception as e:
-                        log_and_capture(f"Error clicking button: {str(e)}")
-                        continue
-                
-                # Wait for the dialog to appear
-                log_and_capture("Waiting for dialog content")
-                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "mat-dialog-content")))
-                log_and_capture("Found dialog content")
-                
-                # Get all the content from the dialog
-                dialog_content = driver.find_element(By.CSS_SELECTOR, "mat-dialog-content")
-                all_text = dialog_content.text
-                log_and_capture(f"Dialog content: {all_text}")
-                
-                # Try to extract the specific fields we need
-                presentation_data = {}
-                try:
-                    birth_date = driver.find_element(
-                        By.XPATH, 
-                        "//span[contains(text(), 'eu.europa.ec.eudi.pid.1:birth_date')]/following-sibling::span"
-                    ).text.split("value: ")[1].split("\n")[0].strip()
-                    presentation_data["birth_date"] = birth_date
-                except Exception as e:
-                    log_and_capture(f"Error extracting birth_date: {str(e)}")
-                
-                try:
-                    family_name = driver.find_element(
-                        By.XPATH, 
-                        "//span[contains(text(), 'eu.europa.ec.eudi.pid.1:family_name')]/following-sibling::span"
-                    ).text.strip()
-                    presentation_data["family_name"] = family_name
-                except Exception as e:
-                    log_and_capture(f"Error extracting family_name: {str(e)}")
-                
-                try:
-                    given_name = driver.find_element(
-                        By.XPATH, 
-                        "//span[contains(text(), 'eu.europa.ec.eudi.pid.1:given_name')]/following-sibling::span"
-                    ).text.strip()
-                    presentation_data["given_name"] = given_name
-                except Exception as e:
-                    log_and_capture(f"Error extracting given_name: {str(e)}")
-                
-                # Update the JSON file with all the data we found
-                request_data["status"] = "success"
-                request_data["presentation_data"] = {
-                    "raw_content": all_text,
-                    "extracted_data": presentation_data,
-                    "presentation_timestamp": datetime.now().isoformat()
-                }
-                
-                with open(file_path, "w") as f:
-                    json.dump(request_data, f, indent=4)
-                
-                log_and_capture("Successfully updated authentication request with presentation data")
+                        page_source = driver.page_source
+                        request_data["presentation_data"] = {
+                            "page_source": page_source,
+                            "error": str(e),
+                            "capture_timestamp": datetime.now().isoformat()
+                        }
+                        with open(file_path, "w") as f:
+                            json.dump(request_data, f, indent=4)
+                    except:
+                        pass
+                    raise
                 
             except Exception as e:
                 log_and_capture(f"Error monitoring presentation results: {str(e)}")
