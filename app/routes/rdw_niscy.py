@@ -31,6 +31,30 @@ class PowerOfRepresentationRequest(BaseModel):
     legal_person_identifier: str
     legal_name: str
 
+# --- Helper Function ---
+def get_request_data_from_file(session_id: str) -> Optional[Dict[str, Any]]:
+    """Retrieve request data from the session JSON file."""
+    file_path = Path("authentication-requests") / f"{session_id}.json"
+    if not file_path.exists():
+        logger.warning(f"No data file found for session ID: {session_id} at {file_path}")
+        return None
+    try:
+        with open(file_path, "r") as f:
+            # Handle empty file case
+            content = f.read()
+            if not content:
+                logger.warning(f"Session file {file_path} is empty.")
+                # Return a dict indicating the error state
+                return {"status": "error", "error": "Empty session file", "logs": []}
+            return json.loads(content)
+    except json.JSONDecodeError as decode_err:
+         logger.error(f"Error decoding JSON from {file_path}: {decode_err}")
+         # Return a dict indicating the error state
+         return {"status": "error", "error": f"Corrupted session file: {decode_err}", "logs": []}
+    except Exception as e:
+        logger.error(f"Error reading session data file {file_path}: {str(e)}")
+        return None # Indicate general read error
+
 @router.post("/power-of-representation")
 async def create_power_of_representation(request: PowerOfRepresentationRequest):
     try:
@@ -771,4 +795,24 @@ async def handle_pid_extraction_in_background(request_id: str):
                 log_and_capture("Removed session from active_sessions.")
             except KeyError:
                  log_and_capture("Session already removed from active_sessions.")
+
+@router.get("/authentication-requests/{session_id}", response_model=Optional[Dict[str, Any]])
+async def get_authentication_request_file(session_id: str):
+    """Retrieves the full content of a specific authentication request JSON file."""
+    logger.info(f"Attempting to retrieve authentication request file for session: {session_id}")
+    
+    request_data = get_request_data_from_file(session_id)
+    
+    if request_data is None:
+        # This covers file not found or general read errors (logged in helper)
+        logger.warning(f"Request file for session {session_id} not found or unreadable.")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Authentication request file not found or unreadable for session ID: {session_id}"
+        )
+        
+    # If the helper returned an error dict (e.g., for empty/corrupted file), return it directly.
+    # FastAPI will serialize this dict to JSON.
+    logger.info(f"Successfully retrieved request file content for session {session_id}. Status in file: {request_data.get('status', 'N/A')}")
+    return request_data
 
