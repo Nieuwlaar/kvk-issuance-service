@@ -242,7 +242,8 @@ async def verify_pid_authentication():
             "wallet_link": wallet_link,
             "timestamp": datetime.now().isoformat(),
             "status": "pending",
-            "presentation_data": None
+            "presentation_data": None,
+            "logs": log_messages  # Store all logs in the JSON file
         }
 
         # Save initial JSON file
@@ -357,13 +358,14 @@ async def verify_pid_authentication():
                         
                         log_and_capture(f"Extracted data: {extracted_data}")
                         
-                        # Update the JSON file with the extracted data
+                        # Update the JSON file with the extracted data and logs
                         request_data["status"] = "success"
                         request_data["presentation_data"] = {
                             "extracted_data": extracted_data,
                             "dialog_html": dialog_content,
                             "capture_timestamp": datetime.now().isoformat()
                         }
+                        request_data["logs"] = log_messages  # Update logs in the JSON file
                         
                     except Exception as e:
                         log_and_capture(f"Error during data extraction: {str(e)}")
@@ -374,6 +376,7 @@ async def verify_pid_authentication():
                             "type": type(e).__name__,
                             "timestamp": datetime.now().isoformat()
                         }
+                        request_data["logs"] = log_messages  # Update logs in the JSON file
                         # Still save the page source for debugging
                         try:
                             page_source = driver.page_source
@@ -395,6 +398,7 @@ async def verify_pid_authentication():
                             "error": str(e),
                             "capture_timestamp": datetime.now().isoformat()
                         }
+                        request_data["logs"] = log_messages  # Update logs in the JSON file
                         with open(file_path, "w") as f:
                             json.dump(request_data, f, indent=4)
                     except:
@@ -405,6 +409,7 @@ async def verify_pid_authentication():
                 log_and_capture(f"Error monitoring presentation results: {str(e)}")
                 request_data["status"] = "error"
                 request_data["error"] = str(e)
+                request_data["logs"] = log_messages  # Update logs in the JSON file
                 with open(file_path, "w") as f:
                     json.dump(request_data, f, indent=4)
             finally:
