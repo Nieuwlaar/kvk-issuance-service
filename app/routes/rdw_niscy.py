@@ -270,33 +270,37 @@ async def verify_pid_authentication():
                 
                 # Wait for the presentation results to appear with a longer timeout
                 log_and_capture("Waiting for vc-presentations-results element")
-                wait = WebDriverWait(driver, 60)  # Increased timeout to 60 seconds
+                wait = WebDriverWait(driver, 120)  # Increased timeout to 120 seconds
                 
                 try:
                     # First try to find the results container
+                    log_and_capture("Attempting to find results container")
                     results_container = wait.until(
                         EC.presence_of_element_located((By.CSS_SELECTOR, "vc-presentations-results"))
                     )
                     log_and_capture("Found vc-presentations-results element")
                     
+                    # Log the current page source for debugging
+                    log_and_capture("Current page source:")
+                    log_and_capture(driver.page_source)
+                    
                     try:
-                        # Log the current page source and visible elements for debugging
-                        log_and_capture("Current page source:")
-                        log_and_capture(driver.page_source)
-                        
                         # Find the mat-card containing the PID credential
+                        log_and_capture("Looking for PID card")
                         pid_card = wait.until(
                             EC.presence_of_element_located((By.XPATH, "//mat-card[.//mat-card-title[contains(text(), 'eu.europa.ec.eudi.pid.1')]]"))
                         )
                         log_and_capture(f"Found PID card: {pid_card.get_attribute('outerHTML')}")
                         
-                        # Find and click the View Content button using the correct Angular Material selector
+                        # Find and click the View Content button
+                        log_and_capture("Looking for View Content button")
                         view_content_button = pid_card.find_element(By.CSS_SELECTOR, "button.mdc-button--outlined span.mdc-button__label")
                         log_and_capture(f"Found View Content button: {view_content_button.get_attribute('outerHTML')}")
                         view_content_button.click()
                         log_and_capture("Clicked View Content button")
                         
-                        # Wait for the dialog to appear with Angular Material specific selectors
+                        # Wait for the dialog to appear
+                        log_and_capture("Waiting for dialog to appear")
                         dialog_selectors = [
                             (By.CSS_SELECTOR, "div[role='dialog']"),
                             (By.CSS_SELECTOR, "div.modal-content"),
@@ -308,22 +312,26 @@ async def verify_pid_authentication():
                         dialog = None
                         for selector in dialog_selectors:
                             try:
-                                dialog = WebDriverWait(driver, 5).until(
+                                log_and_capture(f"Trying dialog selector: {selector[1]}")
+                                dialog = WebDriverWait(driver, 10).until(
                                     EC.presence_of_element_located(selector)
                                 )
                                 log_and_capture(f"Found dialog using selector: {selector[1]}")
                                 break
-                            except:
+                            except Exception as e:
+                                log_and_capture(f"Failed to find dialog with selector {selector[1]}: {str(e)}")
                                 continue
                         
                         if not dialog:
                             raise Exception("Dialog not found with any of the selectors")
                         
                         # Get the dialog content
+                        log_and_capture("Getting dialog content")
                         dialog_content = dialog.get_attribute('innerHTML')
                         log_and_capture(f"Dialog content: {dialog_content}")
                         
-                        # Try to find the data elements in the dialog with multiple possible selectors
+                        # Try to find the data elements in the dialog
+                        log_and_capture("Extracting data from dialog")
                         data_selectors = [
                             ".//div[contains(@class, 'data-row')]",
                             ".//div[contains(@class, 'field')]",
@@ -335,28 +343,31 @@ async def verify_pid_authentication():
                         extracted_data = {}
                         for selector in data_selectors:
                             try:
+                                log_and_capture(f"Trying data selector: {selector}")
                                 data_elements = dialog.find_elements(By.XPATH, selector)
                                 if data_elements:
-                                    log_and_capture(f"Found data elements using selector: {selector}")
+                                    log_and_capture(f"Found {len(data_elements)} data elements using selector: {selector}")
                                     for element in data_elements:
                                         try:
-                                            # Get the text content
                                             text = element.text.strip()
                                             if text:
-                                                # Try to split into key-value pairs if possible
                                                 if ':' in text:
                                                     key, value = text.split(':', 1)
                                                     extracted_data[key.strip()] = value.strip()
+                                                    log_and_capture(f"Extracted key-value pair: {key.strip()} = {value.strip()}")
                                                 else:
                                                     extracted_data[text] = True
-                                        except:
+                                                    log_and_capture(f"Extracted value: {text}")
+                                        except Exception as e:
+                                            log_and_capture(f"Error processing element: {str(e)}")
                                             continue
                                     if extracted_data:
                                         break
-                            except:
+                            except Exception as e:
+                                log_and_capture(f"Error with selector {selector}: {str(e)}")
                                 continue
                         
-                        log_and_capture(f"Extracted data: {extracted_data}")
+                        log_and_capture(f"Final extracted data: {extracted_data}")
                         
                         # Update the JSON file with the extracted data and logs
                         request_data["status"] = "success"
@@ -365,19 +376,23 @@ async def verify_pid_authentication():
                             "dialog_html": dialog_content,
                             "capture_timestamp": datetime.now().isoformat()
                         }
-                        request_data["logs"] = log_messages  # Update logs in the JSON file
+                        request_data["logs"] = log_messages
+                        
+                        # Save the final state
+                        log_and_capture("Saving final state to JSON file")
+                        with open(file_path, "w") as f:
+                            json.dump(request_data, f, indent=4)
+                        log_and_capture("Successfully saved final state")
                         
                     except Exception as e:
                         log_and_capture(f"Error during data extraction: {str(e)}")
-                        # Save error information
                         request_data["status"] = "error"
                         request_data["error"] = {
                             "message": str(e),
                             "type": type(e).__name__,
                             "timestamp": datetime.now().isoformat()
                         }
-                        request_data["logs"] = log_messages  # Update logs in the JSON file
-                        # Still save the page source for debugging
+                        request_data["logs"] = log_messages
                         try:
                             page_source = driver.page_source
                             request_data["presentation_data"] = {
@@ -385,12 +400,13 @@ async def verify_pid_authentication():
                                 "error": str(e),
                                 "capture_timestamp": datetime.now().isoformat()
                             }
+                            with open(file_path, "w") as f:
+                                json.dump(request_data, f, indent=4)
                         except Exception as page_source_error:
                             log_and_capture(f"Error capturing page source: {str(page_source_error)}")
                     
                 except Exception as e:
                     log_and_capture(f"Error during data capture: {str(e)}")
-                    # Save the current page source even if we hit an error
                     try:
                         page_source = driver.page_source
                         request_data["presentation_data"] = {
@@ -398,7 +414,7 @@ async def verify_pid_authentication():
                             "error": str(e),
                             "capture_timestamp": datetime.now().isoformat()
                         }
-                        request_data["logs"] = log_messages  # Update logs in the JSON file
+                        request_data["logs"] = log_messages
                         with open(file_path, "w") as f:
                             json.dump(request_data, f, indent=4)
                     except:
@@ -409,14 +425,15 @@ async def verify_pid_authentication():
                 log_and_capture(f"Error monitoring presentation results: {str(e)}")
                 request_data["status"] = "error"
                 request_data["error"] = str(e)
-                request_data["logs"] = log_messages  # Update logs in the JSON file
+                request_data["logs"] = log_messages
                 with open(file_path, "w") as f:
                     json.dump(request_data, f, indent=4)
             finally:
                 try:
+                    log_and_capture("Cleaning up and closing browser")
                     driver.quit()
-                except:
-                    pass
+                except Exception as e:
+                    log_and_capture(f"Error closing browser: {str(e)}")
 
         # Start the monitoring task
         import asyncio
