@@ -317,7 +317,10 @@ async def verify_pid_authentication():
                     with open(file_path, "w") as f:
                         json.dump(request_data, f, indent=4)
                 finally:
-                    driver.quit()
+                    try:
+                        driver.quit()
+                    except:
+                        pass
 
             # Start the monitoring task
             import asyncio
