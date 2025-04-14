@@ -153,199 +153,122 @@ async def extract_pid_data(request_id: str):
         # First try to find the results container
         log_and_capture("Checking if presentation results exist")
         try:
-            # Use a longer wait for UI elements
-            wait_longer = WebDriverWait(driver, 20)
+            # Use a moderate wait for UI elements - increased from original but not too long
+            wait_medium = WebDriverWait(driver, 10)
             
             # Check current URL
             current_url = driver.current_url
             log_and_capture(f"Current driver URL: {current_url}")
             
             # Find the results container
-            results_container = wait_longer.until(
+            results_container = wait_medium.until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, "vc-presentations-results"))
             )
             log_and_capture("Found vc-presentations-results element - presentation is complete")
             
-            # Find the mat-card containing the PID credential
-            log_and_capture("Looking for PID card")
-            pid_card = wait_longer.until(
-                EC.presence_of_element_located((By.XPATH, "//mat-card[.//mat-card-title[contains(text(), 'eu.europa.ec.eudi.pid.1')]]"))
+            # Find the mat-card containing the PID credential and the View Content button in one operation
+            log_and_capture("Looking for PID card and View Content button")
+            view_button_xpath = "//mat-card[.//mat-card-title[contains(text(), 'eu.europa.ec.eudi.pid.1')]]//button.mdc-button--outlined"
+            view_content_button = wait_medium.until(
+                EC.element_to_be_clickable((By.XPATH, view_button_xpath))
             )
-            log_and_capture("Found PID card")
-
-            # Find and click the View Content button
-            log_and_capture("Looking for View Content button")
-            view_content_button = pid_card.find_element(By.CSS_SELECTOR, "button.mdc-button--outlined span.mdc-button__label")
             log_and_capture("Found View Content button")
-            view_content_button.click()
-            log_and_capture("Clicked View Content button")
             
-            # Wait for the dialog to appear
+            # Try to click directly with JavaScript to avoid potential interception issues
+            try:
+                driver.execute_script("arguments[0].click();", view_content_button)
+                log_and_capture("Clicked View Content button using JavaScript")
+            except Exception as e:
+                log_and_capture(f"JavaScript click failed, trying regular click: {str(e)}")
+                view_content_button.click()
+                log_and_capture("Clicked View Content button")
+            
+            # Wait for the dialog to appear - optimized selectors
             log_and_capture("Waiting for dialog to appear")
-            dialog_selectors = [
-                (By.CSS_SELECTOR, "div[role='dialog']"),
-                (By.CSS_SELECTOR, "div.modal-content"),
-                (By.CSS_SELECTOR, "div.modal-dialog"),
-                (By.CSS_SELECTOR, "div[class*='modal']"),
-                (By.CSS_SELECTOR, "div[class*='dialog']")
-            ]
+            dialog_selector = "div[class*='dialog'], div[role='dialog'], mat-dialog-container"
             
-            dialog = None
-            for selector in dialog_selectors:
+            try:
+                dialog = wait_medium.until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, dialog_selector))
+                )
+                log_and_capture(f"Found dialog")
+            except Exception as e:
+                log_and_capture(f"Dialog not found with standard selectors: {str(e)}")
+                # Fallback attempt
                 try:
-                    log_and_capture(f"Trying dialog selector: {selector[1]}")
-                    dialog = WebDriverWait(driver, 10).until(
-                        EC.presence_of_element_located(selector)
-                    )
-                    log_and_capture(f"Found dialog using selector: {selector[1]}")
-                    break
-                except Exception as e:
-                    log_and_capture(f"Did not find dialog with selector {selector[1]}")
-                    continue
-            
-            if not dialog:
-                raise Exception("Dialog not found after clicking 'View Content'")
+                    dialogs = driver.find_elements(By.CSS_SELECTOR, "div:not([class])") 
+                    for d in dialogs:
+                        if "Attributes" in d.text and "Close" in d.text:
+                            dialog = d
+                            log_and_capture("Found dialog using text content heuristic")
+                            break
+                    if not dialog:
+                        raise Exception("Dialog not found after multiple attempts")
+                except Exception as e2:
+                    log_and_capture(f"Fallback dialog search failed: {str(e2)}")
+                    raise Exception("Dialog not found after multiple attempts")
             
             # Get the dialog content
             log_and_capture("Getting dialog content")
             try:
-                dialog_content = dialog.get_attribute('innerHTML') if dialog else ""
                 dialog_text = dialog.text if dialog else ""
                 log_and_capture(f"Dialog content Text: {dialog_text}")
+                # Only get innerHTML if we really need it - save time
+                dialog_content_length = len(dialog.get_attribute('outerHTML')) if dialog else 0
             except Exception as e:
                 log_and_capture(f"Error getting dialog content: {str(e)}")
-                dialog_content = ""
                 dialog_text = ""
+                dialog_content_length = 0
 
-            # Extract the specific fields we need
-            log_and_capture("Extracting specific fields (birth_date, given_name, family_name) from dialog text")
+            # Fast extraction using improved patterns
+            log_and_capture("Extracting data from dialog text")
             extracted_data = {}
             
-            # Try to extract from dialog text
-            try:
-                # More robust parsing logic for the Angular Material dialog format
-                birth_date_patterns = [
-                    r"eu\.europa\.ec\.eudi\.pid\.1:birth_date\s+value:\s*(\d{4}-\d{2}-\d{2})",
-                    r"birth_date\s+(?:value:)?\s*(\d{4}-\d{2}-\d{2})",
-                    r"birth.date.*?(\d{4}-\d{2}-\d{2})",
-                    r"value:\s*(\d{4}-\d{2}-\d{2})"
-                ]
-                
-                family_name_patterns = [
-                    r"eu\.europa\.ec\.eudi\.pid\.1:family_name\s+(?:\n|\r\n?)([^\n\r]+)",
-                    r"family.name.*?(?:\n|\r\n?)([^\n\r]+)",
-                    r"family.name[^\n\r]*?([^\n\r:]+)$"
-                ]
-                
-                given_name_patterns = [
-                    r"eu\.europa\.ec\.eudi\.pid\.1:given_name\s+(?:\n|\r\n?)([^\n\r]+)",
-                    r"given.name.*?(?:\n|\r\n?)([^\n\r]+)",
-                    r"given.name[^\n\r]*?([^\n\r:]+)$"
-                ]
-                
-                # Try each pattern for birth_date
-                for pattern in birth_date_patterns:
-                    birth_date_match = re.search(pattern, dialog_text, re.IGNORECASE)
-                    if birth_date_match:
-                        extracted_data["birth_date"] = birth_date_match.group(1).strip()
-                        log_and_capture(f"*** Extracted birth_date: {extracted_data['birth_date']} using pattern: {pattern} ***")
+            # Optimized regex patterns
+            field_patterns = {
+                "birth_date": [r"birth_date\s+value:\s*(\d{4}-\d{2}-\d{2})"],
+                "family_name": [r"family_name\s*\n([^\n\r]+)"],
+                "given_name": [r"given_name\s*\n([^\n\r]+)"]
+            }
+            
+            # Process all fields at once
+            for field, patterns in field_patterns.items():
+                for pattern in patterns:
+                    match = re.search(pattern, dialog_text, re.IGNORECASE)
+                    if match:
+                        extracted_data[field] = match.group(1).strip()
+                        log_and_capture(f"*** Extracted {field}: {extracted_data[field]} ***")
                         break
+            
+            # If line-by-line is needed, use this optimized approach
+            if len(extracted_data) < 3:
+                lines = dialog_text.split('\n')
+                log_and_capture(f"Using line-by-line parsing")
                 
-                # Try each pattern for family_name
-                for pattern in family_name_patterns:
-                    family_name_match = re.search(pattern, dialog_text, re.IGNORECASE)
-                    if family_name_match:
-                        extracted_data["family_name"] = family_name_match.group(1).strip()
-                        log_and_capture(f"*** Extracted family_name: {extracted_data['family_name']} using pattern: {pattern} ***")
-                        break
+                field_map = {}
+                current_field = None
                 
-                # Try each pattern for given_name
-                for pattern in given_name_patterns:
-                    given_name_match = re.search(pattern, dialog_text, re.IGNORECASE)
-                    if given_name_match:
-                        extracted_data["given_name"] = given_name_match.group(1).strip()
-                        log_and_capture(f"*** Extracted given_name: {extracted_data['given_name']} using pattern: {pattern} ***")
-                        break
-                
-                # Fallback: Try to parse by lines
-                if len(extracted_data) < 3:
-                    lines = dialog_text.split('\n')  # Split by newline characters
-                    log_and_capture(f"Trying line-by-line parsing of {len(lines)} lines")
+                for i, line in enumerate(lines):
+                    line = line.strip()
+                    if not line: continue
                     
-                    current_field = None
-                    for line in lines:
-                        line = line.strip()
-                        if not line:
-                            continue
-                            
-                        # Check if this is a field name line
-                        if "birth_date" in line.lower():
-                            current_field = "birth_date"
-                            # Try to extract from this line too
-                            if ":" in line:
-                                value = line.split(":", 1)[1].strip()
-                                if re.match(r"\d{4}-\d{2}-\d{2}", value):
-                                    extracted_data["birth_date"] = value
-                                    log_and_capture(f"*** Extracted birth_date from line: {value} ***")
-                        elif "family_name" in line.lower():
-                            current_field = "family_name"
-                        elif "given_name" in line.lower():
-                            current_field = "given_name"
-                        # If not a field name and we have a current field, this might be the value
-                        elif current_field and current_field not in extracted_data:
-                            # For birth_date, ensure it matches date format
-                            if current_field == "birth_date":
-                                if re.match(r"\d{4}-\d{2}-\d{2}", line):
-                                    extracted_data["birth_date"] = line
-                                    log_and_capture(f"*** Extracted {current_field} from next line: {line} ***")
-                            else:
-                                extracted_data[current_field] = line
-                                log_and_capture(f"*** Extracted {current_field} from next line: {line} ***")
-                            current_field = None
+                    if "birth_date" in line.lower():
+                        current_field = "birth_date"
+                        field_map[current_field] = i
+                    elif "family_name" in line.lower():
+                        current_field = "family_name"
+                        field_map[current_field] = i
+                    elif "given_name" in line.lower():
+                        current_field = "given_name"
+                        field_map[current_field] = i
                 
-                # Final fallback: Try to extract directly from HTML elements if regex didn't work
-                required_fields = {'given_name', 'family_name', 'birth_date'}
-                missing_fields = required_fields - set(extracted_data.keys())
-                
-                if missing_fields:
-                    log_and_capture(f"Missing fields after parsing: {missing_fields}. Trying direct element extraction.")
-                    
-                    try:
-                        # Find list items in the dialog that contain the field data
-                        list_items = dialog.find_elements(By.CSS_SELECTOR, "mat-list-item, .list-item, li")
-                        log_and_capture(f"Found {len(list_items)} list items in dialog")
-                        
-                        for item in list_items:
-                            item_text = item.text
-                            log_and_capture(f"List item text: {item_text}")
-                            
-                            if "birth_date" in item_text.lower() and "birth_date" not in extracted_data:
-                                # Get value part from item like "birth_date value: 2025-04-02 tag: 1004"
-                                value_match = re.search(r"value:\s*(\d{4}-\d{2}-\d{2})", item_text)
-                                if value_match:
-                                    extracted_data["birth_date"] = value_match.group(1)
-                                    log_and_capture(f"*** Extracted birth_date from element: {extracted_data['birth_date']} ***")
-                            
-                            elif "family_name" in item_text.lower() and "family_name" not in extracted_data:
-                                # Try to extract based on line break or colon
-                                if "\n" in item_text:
-                                    parts = item_text.split("\n")
-                                    if len(parts) > 1:
-                                        extracted_data["family_name"] = parts[1].strip()
-                                        log_and_capture(f"*** Extracted family_name from element: {extracted_data['family_name']} ***")
-                            
-                            elif "given_name" in item_text.lower() and "given_name" not in extracted_data:
-                                # Try to extract based on line break or colon
-                                if "\n" in item_text:
-                                    parts = item_text.split("\n")
-                                    if len(parts) > 1:
-                                        extracted_data["given_name"] = parts[1].strip()
-                                        log_and_capture(f"*** Extracted given_name from element: {extracted_data['given_name']} ***")
-                    
-                    except Exception as e:
-                        log_and_capture(f"Error during element extraction: {str(e)}")
-            except Exception as ex:
-                log_and_capture(f"Error during dialog text extraction: {str(ex)}")
+                # Process fields and values from adjacent lines
+                for field, idx in field_map.items():
+                    if field not in extracted_data and idx + 1 < len(lines):
+                        value = lines[idx + 1].strip()
+                        if value and not any(keyword in value.lower() for keyword in ["birth_date", "family_name", "given_name", "close", "attributes"]):
+                            extracted_data[field] = value
+                            log_and_capture(f"*** Extracted {field} from line: {value} ***")
             
             # Update the request data to include the extracted information
             if extracted_data:
@@ -358,7 +281,7 @@ async def extract_pid_data(request_id: str):
                 # Update the request_data
                 request_data["status"] = "success"
                 request_data["presentation_data"]["extracted_data"] = extracted_data
-                request_data["presentation_data"]["dialog_html_length"] = len(dialog_content) if dialog_content else 0
+                request_data["presentation_data"]["dialog_html_length"] = dialog_content_length
                 request_data["presentation_data"]["capture_timestamp"] = datetime.now().isoformat()
                 request_data["logs"] = log_messages
                 
@@ -449,13 +372,13 @@ async def verify_pid_authentication():
         logging.info(message)
         log_messages.append(message)
 
-    # Initialize Chrome with options for visibility
+    # Initialize Chrome with optimized settings for speed
     options = webdriver.ChromeOptions()
     options.binary_location = "/usr/bin/chromium"
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
-    options.add_argument("--disable-software-rasterizer")
+    # Optimize for speed
     options.add_argument("--disable-extensions")
     options.add_argument("--disable-infobars")
     options.add_argument("--disable-notifications")
@@ -465,22 +388,28 @@ async def verify_pid_authentication():
     options.add_argument("--metrics-recording-only")
     options.add_argument("--mute-audio")
     options.add_argument("--no-first-run")
-    options.add_argument("--safebrowsing-disable-auto-update")
-    options.add_argument("--enable-automation")
-    options.add_argument("--password-store=basic")
     options.add_argument("--headless=new")
+    # Enable this for faster page loads
     options.add_argument("--blink-settings=imagesEnabled=false")
-    options.add_argument("--remote-debugging-port=9222")
-    options.add_argument("--window-size=1920x1080")
+    options.add_argument("--window-size=1280x720")  # Smaller window size
     options.add_argument("--single-process")
-    options.add_argument("--no-zygote")
+    options.add_argument("--disable-web-security")  # Helps with some sites
+    options.add_argument("--disable-site-isolation-trials")
     options.add_argument(f"--user-data-dir={user_data_dir}")
+    
+    # Performance optimizations
+    prefs = {
+        'disk-cache-size': 4096,
+        'profile.default_content_settings.images': 2,  # Disable images
+        'profile.managed_default_content_settings.images': 2
+    }
+    options.add_experimental_option('prefs', prefs)
 
     # Use the system-installed chromedriver
     service = Service("/usr/bin/chromedriver")
     driver = webdriver.Chrome(service=service, options=options)
-    driver.set_page_load_timeout(30)
-    wait = WebDriverWait(driver, 10)
+    driver.set_page_load_timeout(20)  # Reduce timeout
+    wait = WebDriverWait(driver, 5)  # Shorter waits
 
     try:
         # Navigate to the verifier website
@@ -493,59 +422,54 @@ async def verify_pid_authentication():
         log_and_capture(f"Generated request ID: {request_id}")
         log_and_capture(f"Generated nonce: {nonce}")
 
-        # Prepare the JSON to be entered
+        # Prepare the JSON to be entered (optimized for readability and size)
         json_content = f"""{{
-    "type": "vp_token",
-    "presentation_definition": {{
-        "id": "{request_id}",
-        "input_descriptors": [
-            {{
-                "id": "eu.europa.ec.eudi.pid.1",
-                "format": {{
-                    "mso_mdoc": {{
-                        "alg": [
-                            "ES256"
-                        ]
-                    }}
-                }},
-                "constraints": {{
-                    "limit_disclosure": "required",
-                    "fields": [
-                        {{
-                            "path": [
-                                "$['eu.europa.ec.eudi.pid.1']['family_name']"
-                            ],
-                            "intent_to_retain": false
-                        }},
-                        {{
-                            "path": [
-                                "$['eu.europa.ec.eudi.pid.1']['given_name']"
-                            ],
-                            "intent_to_retain": false
-                        }},
-                        {{
-                            "path": [
-                                "$['eu.europa.ec.eudi.pid.1']['birth_date']"
-                            ],
-                            "intent_to_retain": false
-                        }}
-                    ]
-                }}
-            }}
-        ]
-    }},
-    "nonce": "{nonce}"
+  "type": "vp_token",
+  "presentation_definition": {{
+    "id": "{request_id}",
+    "input_descriptors": [
+      {{
+        "id": "eu.europa.ec.eudi.pid.1",
+        "format": {{ "mso_mdoc": {{ "alg": ["ES256"] }} }},
+        "constraints": {{
+          "limit_disclosure": "required",
+          "fields": [
+            {{ "path": ["$['eu.europa.ec.eudi.pid.1']['family_name']"], "intent_to_retain": false }},
+            {{ "path": ["$['eu.europa.ec.eudi.pid.1']['given_name']"], "intent_to_retain": false }},
+            {{ "path": ["$['eu.europa.ec.eudi.pid.1']['birth_date']"], "intent_to_retain": false }}
+          ]
+        }}
+      }}
+    ]
+  }},
+  "nonce": "{nonce}"
 }}"""
 
         # Find the text editor and input the JSON
         log_and_capture("Inputting JSON into the editor")
-        editor = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "div.cm-content")))
-        driver.execute_script("arguments[0].textContent = arguments[1]", editor, json_content)
+        try:
+            # Try faster direct script injection first
+            driver.execute_script(
+                """
+                const editorContent = document.querySelector('div.cm-content');
+                if (editorContent) {
+                    editorContent.textContent = arguments[0];
+                    // Trigger change event for Angular to detect
+                    const event = new Event('input', { bubbles: true });
+                    editorContent.dispatchEvent(event);
+                }
+                """, 
+                json_content
+            )
+        except Exception as e:
+            log_and_capture(f"Direct script injection failed: {str(e)}. Trying standard method.")
+            editor = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "div.cm-content")))
+            driver.execute_script("arguments[0].textContent = arguments[1]", editor, json_content)
 
         # Click the Next button
         log_and_capture("Clicking Next button")
         next_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "button.primary")))
-        next_button.click()
+        driver.execute_script("arguments[0].click();", next_button)  # JavaScript click is faster
 
         # Wait for the QR code page to load and get the wallet link
         log_and_capture("Waiting for QR code page to load")
@@ -580,7 +504,7 @@ async def verify_pid_authentication():
         # Store the driver and wait in the active_sessions dictionary
         active_sessions[request_id] = {
             "driver": driver,
-            "wait": WebDriverWait(driver, 60),  # Use a longer wait for later extraction
+            "wait": WebDriverWait(driver, 30),  # Shorter wait than before but still reasonable
             "file_path": file_path,
             "timestamp": datetime.now().isoformat()
         }
@@ -665,4 +589,50 @@ async def delete_active_session(session_id: str):
         return {
             "status": "error",
             "message": f"Error deleting session {session_id}: {str(e)}"
+        }
+
+@router.get("/debug/cleanup-stale-sessions")
+async def cleanup_stale_sessions():
+    """Clean up stale sessions that have been idle for more than 10 minutes."""
+    try:
+        current_time = datetime.now()
+        stale_session_ids = []
+        
+        # Find stale sessions
+        for session_id, session_data in list(active_sessions.items()):
+            try:
+                session_time = datetime.fromisoformat(session_data.get("timestamp", "2000-01-01T00:00:00"))
+                # If session is older than 10 minutes, mark it for cleanup
+                if (current_time - session_time).total_seconds() > 600:  # 10 minutes
+                    stale_session_ids.append(session_id)
+            except Exception as e:
+                # If we can't parse the timestamp, assume it's stale
+                logging.error(f"Error parsing timestamp for session {session_id}: {str(e)}")
+                stale_session_ids.append(session_id)
+        
+        # Clean up stale sessions
+        cleaned_sessions = []
+        for session_id in stale_session_ids:
+            try:
+                # Try to quit the driver
+                driver = active_sessions[session_id].get("driver")
+                if driver:
+                    driver.quit()
+                # Remove from active sessions
+                del active_sessions[session_id]
+                cleaned_sessions.append(session_id)
+            except Exception as e:
+                logging.error(f"Error cleaning up session {session_id}: {str(e)}")
+        
+        return {
+            "status": "success",
+            "cleaned_sessions_count": len(cleaned_sessions),
+            "cleaned_sessions": cleaned_sessions,
+            "remaining_sessions_count": len(active_sessions)
+        }
+    except Exception as e:
+        logging.error(f"Error in cleanup_stale_sessions: {str(e)}")
+        return {
+            "status": "error",
+            "message": f"Error cleaning up stale sessions: {str(e)}"
         }
