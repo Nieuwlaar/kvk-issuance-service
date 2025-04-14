@@ -1,5 +1,5 @@
 from datetime import datetime
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 import logging
 import tempfile
@@ -118,9 +118,13 @@ async def create_power_of_representation(request: PowerOfRepresentationRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/pid-authentication")
-async def verify_pid_authentication():
+async def verify_pid_authentication(background_tasks: BackgroundTasks):
     # List to capture log messages for the response
     log_messages: List[str] = []
+    request_data = {}
+    file_path = None
+    driver = None
+
     def log_and_capture(message: str):
         logging.info(message)
         log_messages.append(message)
