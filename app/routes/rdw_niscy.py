@@ -19,6 +19,9 @@ from pathlib import Path
 router = APIRouter()
 user_data_dir = tempfile.mkdtemp()
 
+# In-memory store for active driver sessions
+active_sessions = {}
+
 # Define the request models
 class PowerOfRepresentationRequest(BaseModel):
     legal_person_identifier: str
@@ -117,14 +120,214 @@ async def create_power_of_representation(request: PowerOfRepresentationRequest):
         logging.error(f"Error in create_power_of_representation: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/pid-extraction/{request_id}")
+async def extract_pid_data(request_id: str):
+    # Check if we have an active session for this request
+    if request_id not in active_sessions:
+        raise HTTPException(status_code=404, detail=f"No active session found for request ID {request_id}. Please start a new authentication flow.")
+    
+    # Get the driver and wait from the active session
+    session_data = active_sessions[request_id]
+    driver = session_data.get("driver")
+    wait = session_data.get("wait")
+    file_path = session_data.get("file_path")
+    
+    if not driver or not wait or not file_path:
+        raise HTTPException(status_code=500, detail="Session data is incomplete")
+    
+    # Read the current request data from file
+    with open(file_path, "r") as f:
+        request_data = json.load(f)
+    
+    # Initialize log collection
+    log_messages = request_data.get("logs", [])
+    def log_and_capture(message: str):
+        logging.info(message)
+        log_messages.append(message)
+    
+    try:
+        # Try to find results and extract data using the existing driver session
+        log_and_capture(f"Using existing driver session for request {request_id}")
+        
+        # First try to find the results container
+        log_and_capture("Checking if presentation results exist")
+        try:
+            # Use a longer wait for UI elements
+            wait_longer = WebDriverWait(driver, 20)
+            
+            # Check current URL
+            current_url = driver.current_url
+            log_and_capture(f"Current driver URL: {current_url}")
+            
+            # Find the results container
+            results_container = wait_longer.until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "vc-presentations-results"))
+            )
+            log_and_capture("Found vc-presentations-results element - presentation is complete")
+            
+            # Find the mat-card containing the PID credential
+            log_and_capture("Looking for PID card")
+            pid_card = wait_longer.until(
+                EC.presence_of_element_located((By.XPATH, "//mat-card[.//mat-card-title[contains(text(), 'eu.europa.ec.eudi.pid.1')]]"))
+            )
+            log_and_capture("Found PID card")
+
+            # Find and click the View Content button
+            log_and_capture("Looking for View Content button")
+            view_content_button = pid_card.find_element(By.CSS_SELECTOR, "button.mdc-button--outlined span.mdc-button__label")
+            log_and_capture("Found View Content button")
+            view_content_button.click()
+            log_and_capture("Clicked View Content button")
+            
+            # Wait for the dialog to appear
+            log_and_capture("Waiting for dialog to appear")
+            dialog_selectors = [
+                (By.CSS_SELECTOR, "div[role='dialog']"),
+                (By.CSS_SELECTOR, "div.modal-content"),
+                (By.CSS_SELECTOR, "div.modal-dialog"),
+                (By.CSS_SELECTOR, "div[class*='modal']"),
+                (By.CSS_SELECTOR, "div[class*='dialog']")
+            ]
+            
+            dialog = None
+            for selector in dialog_selectors:
+                try:
+                    log_and_capture(f"Trying dialog selector: {selector[1]}")
+                    dialog = WebDriverWait(driver, 10).until(
+                        EC.presence_of_element_located(selector)
+                    )
+                    log_and_capture(f"Found dialog using selector: {selector[1]}")
+                    break
+                except Exception as e:
+                    log_and_capture(f"Did not find dialog with selector {selector[1]}")
+                    continue
+            
+            if not dialog:
+                raise Exception("Dialog not found after clicking 'View Content'")
+            
+            # Get the dialog content
+            log_and_capture("Getting dialog content")
+            dialog_content = dialog.get_attribute('innerHTML')
+            dialog_text = dialog.text
+            log_and_capture(f"Dialog content Text: {dialog_text}")
+
+            # Extract the specific fields we need
+            log_and_capture("Extracting specific fields (birth_date, given_name, family_name) from dialog text")
+            extracted_data = {}
+            
+            # Try to extract from dialog text
+            lines = dialog_text.split('\n')  # Split by newline characters
+            required_fields = ['given_name', 'family_name', 'birth_date']
+            found_fields = set()
+            log_and_capture(f"Parsing {len(lines)} lines from dialog text")
+
+            for line in lines:
+                line = line.strip()
+                if ':' in line:
+                    key, value = line.split(':', 1)
+                    norm_key = key.strip().lower().replace(" ", "_")  # Normalize key
+                    value = value.strip()
+                    log_and_capture(f"Parsed line: Key='{norm_key}', Value='{value}'")
+                    if norm_key in required_fields:
+                        extracted_data[norm_key] = value
+                        found_fields.add(norm_key)
+                        log_and_capture(f"*** Extracted {norm_key}: {value} ***")
+            
+            # Update the request data with the extracted information
+            if extracted_data:
+                log_and_capture(f"Successfully extracted {len(extracted_data)} fields: {', '.join(extracted_data.keys())}")
+                # Update the request_data
+                request_data["status"] = "success"
+                request_data["presentation_data"] = {
+                    "extracted_data": extracted_data,
+                    "dialog_html_length": len(dialog_content),  # Store length instead of full HTML
+                    "capture_timestamp": datetime.now().isoformat()
+                }
+                request_data["logs"] = log_messages
+                
+                # Save updated request data
+                with open(file_path, "w") as f:
+                    json.dump(request_data, f, indent=4)
+                
+                # Clean up the driver session
+                driver.quit()
+                del active_sessions[request_id]
+                log_and_capture(f"Closed driver session for request {request_id}")
+                
+                return {
+                    "status": "success",
+                    "data": {
+                        "extracted_data": extracted_data
+                    },
+                    "logs": log_messages
+                }
+            else:
+                log_and_capture("No fields were extracted from the dialog")
+                request_data["status"] = "extraction_failed"
+                request_data["logs"] = log_messages
+                with open(file_path, "w") as f:
+                    json.dump(request_data, f, indent=4)
+                
+                return {
+                    "status": "extraction_failed",
+                    "message": "No fields could be extracted from the dialog",
+                    "logs": log_messages
+                }
+                
+        except Exception as e:
+            # If we can't find the results container, the presentation isn't complete yet
+            log_and_capture(f"Error checking presentation status: {str(e)}")
+            if "vc-presentations-results" in str(e):
+                log_and_capture("Presentation not yet complete")
+                request_data["status"] = "pending"
+                request_data["logs"] = log_messages
+                with open(file_path, "w") as f:
+                    json.dump(request_data, f, indent=4)
+                return {
+                    "status": "pending",
+                    "message": "Presentation not yet complete. Complete the wallet flow and check again.",
+                    "logs": log_messages
+                }
+            else:
+                # Some other error occurred
+                log_and_capture(f"Error during extraction: {str(e)}")
+                request_data["status"] = "error"
+                request_data["error"] = str(e)
+                request_data["logs"] = log_messages
+                with open(file_path, "w") as f:
+                    json.dump(request_data, f, indent=4)
+                return {
+                    "status": "error",
+                    "message": f"Error checking presentation status: {str(e)}",
+                    "logs": log_messages
+                }
+            
+    except Exception as e:
+        log_and_capture(f"Error in extract_pid_data: {str(e)}")
+        request_data["status"] = "error"
+        request_data["error"] = str(e)
+        request_data["logs"] = log_messages
+        with open(file_path, "w") as f:
+            json.dump(request_data, f, indent=4)
+        
+        # Clean up the session on error
+        try:
+            driver.quit()
+        except:
+            pass
+        if request_id in active_sessions:
+            del active_sessions[request_id]
+        
+        return {
+            "status": "error",
+            "message": f"Error extracting data: {str(e)}",
+            "logs": log_messages
+        }
+
 @router.get("/pid-authentication")
-async def verify_pid_authentication(background_tasks: BackgroundTasks):
+async def verify_pid_authentication():
     # List to capture log messages for the response
     log_messages: List[str] = []
-    request_data = {}
-    file_path = None
-    driver = None
-
     def log_and_capture(message: str):
         logging.info(message)
         log_messages.append(message)
@@ -257,222 +460,27 @@ async def verify_pid_authentication(background_tasks: BackgroundTasks):
 
         log_and_capture(f"Saved authentication request data to {file_path}")
         
-        # Return initial response with QR code
+        # Store the driver and wait in the active_sessions dictionary
+        active_sessions[request_id] = {
+            "driver": driver,
+            "wait": WebDriverWait(driver, 60),  # Use a longer wait for later extraction
+            "file_path": file_path,
+            "timestamp": datetime.now().isoformat()
+        }
+        log_and_capture(f"Stored driver session for request ID: {request_id}")
+        
+        # Return initial response with QR code and instructions for data extraction
         initial_response = {
             "status": "success",
             "data": {
                 "id": request_id,
-                "wallet_link": wallet_link
+                "wallet_link": wallet_link,
+                "extraction_endpoint": f"/pid-extraction/{request_id}"
             },
+            "message": "After completing the wallet flow, call the extraction endpoint to get the data",
             "logs": log_messages
         }
-
-        # Start a background task to monitor the presentation results
-        async def monitor_presentation_results():
-            final_status = "unknown" # Track status for final save
-            error_details = None
-            try:
-                log_and_capture("Starting to monitor for presentation results")
-                
-                # Wait for the presentation results to appear with a longer timeout
-                log_and_capture("Waiting for vc-presentations-results element (up to 120s)")
-                wait = WebDriverWait(driver, 120)
-                
-                try:
-                    # First try to find the results container
-                    log_and_capture("Attempting to find results container")
-                    results_container = wait.until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, "vc-presentations-results"))
-                    )
-                    log_and_capture("Found vc-presentations-results element")
-                    
-                    # Log the current page source for debugging
-                    log_and_capture("Current page source (after finding results container):")
-                    log_and_capture(driver.page_source)
-                    
-                    try:
-                        # Find the mat-card containing the PID credential
-                        log_and_capture("Looking for PID card")
-                        pid_card = wait.until(
-                            EC.presence_of_element_located((By.XPATH, "//mat-card[.//mat-card-title[contains(text(), 'eu.europa.ec.eudi.pid.1')]]"))
-                        )
-                        log_and_capture(f"Found PID card") # Removed verbose outerHTML log
-
-                        # Find and click the View Content button
-                        log_and_capture("Looking for View Content button")
-                        view_content_button = pid_card.find_element(By.CSS_SELECTOR, "button.mdc-button--outlined span.mdc-button__label")
-                        log_and_capture(f"Found View Content button") # Removed verbose outerHTML log
-                        view_content_button.click()
-                        log_and_capture("Clicked View Content button")
-                        
-                        # Wait for the dialog to appear
-                        log_and_capture("Waiting for dialog to appear (up to 10s)")
-                        dialog_selectors = [
-                            (By.CSS_SELECTOR, "div[role='dialog']"),
-                            (By.CSS_SELECTOR, "div.modal-content"),
-                            (By.CSS_SELECTOR, "div.modal-dialog"),
-                            (By.CSS_SELECTOR, "div[class*='modal']"),
-                            (By.CSS_SELECTOR, "div[class*='dialog']")
-                        ]
-                        
-                        dialog = None
-                        for selector in dialog_selectors:
-                            try:
-                                log_and_capture(f"Trying dialog selector: {selector[1]}")
-                                dialog = WebDriverWait(driver, 10).until(
-                                    EC.presence_of_element_located(selector)
-                                )
-                                log_and_capture(f"Found dialog using selector: {selector[1]}")
-                                break
-                            except Exception as e:
-                                log_and_capture(f"Did not find dialog with selector {selector[1]}")
-                                continue
-                        
-                        if not dialog:
-                            raise Exception("Dialog not found after clicking 'View Content'")
-                        
-                        # Get the dialog content
-                        log_and_capture("Getting dialog content")
-                        dialog_content = dialog.get_attribute('innerHTML')
-                        log_and_capture(f"Dialog content HTML: {dialog_content}") # Log HTML for debug
-                        dialog_text = dialog.text
-                        log_and_capture(f"Dialog content Text: {dialog_text}") # Log text for debug
-
-                        # --- Refined Extraction Logic ---
-                        log_and_capture("Extracting specific fields (birth_date, given_name, family_name) from dialog text")
-                        extracted_data = {}
-                        try:
-                            lines = dialog_text.split('\\n') # Split by newline characters
-                            required_fields = ['given_name', 'family_name', 'birth_date']
-                            found_fields = set()
-                            log_and_capture(f"Parsing {len(lines)} lines from dialog text")
-
-                            for line in lines:
-                                line = line.strip()
-                                if ':' in line:
-                                    key, value = line.split(':', 1)
-                                    norm_key = key.strip().lower().replace(" ", "_") # Normalize key
-                                    value = value.strip()
-                                    log_and_capture(f"Parsed line: Key='{norm_key}', Value='{value}'")
-                                    if norm_key in required_fields:
-                                        extracted_data[norm_key] = value
-                                        found_fields.add(norm_key)
-                                        log_and_capture(f"*** Extracted {norm_key}: {value} ***")
-
-                            if len(found_fields) == len(required_fields):
-                                log_and_capture("Successfully extracted all required fields.")
-                                final_status = "success"
-                                request_data["presentation_data"] = {
-                                    "extracted_data": extracted_data,
-                                    "dialog_html": dialog_content, # Keep HTML for reference
-                                    "capture_timestamp": datetime.now().isoformat()
-                                }
-                            else:
-                                missing = set(required_fields) - found_fields
-                                log_and_capture(f"Warning: Missing required fields: {missing}. Saving partial data.")
-                                final_status = "extraction_incomplete"
-                                error_details = {"message": f"Missing fields: {missing}", "type": "ExtractionIncomplete"}
-                                request_data["presentation_data"] = {
-                                    "extracted_data": extracted_data, # Save partial
-                                    "dialog_html": dialog_content,
-                                    "error": f"Missing fields: {missing}",
-                                    "capture_timestamp": datetime.now().isoformat()
-                                }
-
-                        except Exception as extraction_err:
-                            log_and_capture(f"Error during specific field extraction: {extraction_err}")
-                            final_status = "extraction_error"
-                            error_details = {"message": str(extraction_err), "type": type(extraction_err).__name__}
-                            request_data["presentation_data"] = { # Save context on error
-                                 "dialog_html": dialog_content,
-                                 "dialog_text": dialog_text,
-                                 "error": f"Extraction failed: {extraction_err}",
-                                 "capture_timestamp": datetime.now().isoformat()
-                            }
-                        # --- End Refined Extraction ---
-
-                    except Exception as inner_e:
-                        # Error finding card, button, dialog, etc.
-                        log_and_capture(f"Error during data capture setup (finding elements, clicking): {inner_e}")
-                        final_status = "capture_setup_error"
-                        error_details = {"message": str(inner_e), "type": type(inner_e).__name__}
-                        # Attempt to save page source if possible
-                        try:
-                            page_source = driver.page_source
-                            request_data["presentation_data"] = {
-                                "page_source": page_source,
-                                "error": str(inner_e),
-                                "capture_timestamp": datetime.now().isoformat()
-                            }
-                            log_and_capture("Saved page source after capture setup error.")
-                        except Exception as ps_error:
-                            log_and_capture(f"Could not get page source after error: {ps_error}")
-                            request_data["presentation_data"] = {"error": str(inner_e)} # Save original error anyway
-                
-                except Exception as outer_e:
-                    # Error waiting for results container, or other top-level error in the initial wait
-                    log_and_capture(f"Error monitoring presentation results (e.g., timeout waiting for results container): {outer_e}")
-                    final_status = "monitoring_error"
-                    error_details = {"message": str(outer_e), "type": type(outer_e).__name__}
-                    # Try saving page source if driver exists
-                    try:
-                         page_source = driver.page_source
-                         request_data["presentation_data"] = {
-                             "page_source": page_source,
-                             "error": str(outer_e),
-                             "capture_timestamp": datetime.now().isoformat()
-                         }
-                         log_and_capture("Saved page source after monitoring error.")
-                    except Exception as ps_error:
-                         log_and_capture(f"Could not get page source after outer error: {ps_error}")
-                         request_data["presentation_data"] = {"error": str(outer_e)} # Save original error
-
-            finally:
-                # Always update status and logs, then attempt to save
-                # Use final_status determined by the try/except blocks, default to 'error_saving' if something went very wrong
-                request_data["status"] = final_status if final_status != "unknown" else "error_saving" 
-                if error_details:
-                     request_data["error"] = error_details # Store structured error details
-
-                request_data["logs"] = log_messages # Ensure logs list is the most up-to-date
-
-                try:
-                    log_and_capture(f"Attempting final save with status: {request_data['status']}")
-                    with open(file_path, "w") as f:
-                        json.dump(request_data, f, indent=4)
-                    log_and_capture(f"Final save completed to {file_path}.")
-                except Exception as save_error:
-                    log_and_capture(f"CRITICAL: Failed to save final state to {file_path}: {save_error}")
-                    # Log to standard logging as last resort
-                    logging.error(f"CRITICAL: Failed to save final state for {request_id} to {file_path}: {save_error}")
-                    logging.error(f"Final request_data was: {json.dumps(request_data)}") # Log the data that failed to save
-
-                # Close browser
-                try:
-                    log_and_capture("Cleaning up and closing browser")
-                    driver.quit()
-                    log_and_capture("Browser closed successfully.")
-                except Exception as quit_error:
-                    log_and_capture(f"Error closing browser: {quit_error}")
-
-        # Start the monitoring task
-        import asyncio
-        log_and_capture("Preparing to create background task...") # Log before task creation
-        try:
-            task = asyncio.create_task(monitor_presentation_results())
-            log_and_capture(f"Background task created: {task.get_name()}") # Log after task creation
-        except Exception as task_creation_error:
-            log_and_capture(f"CRITICAL: Failed to create background task: {task_creation_error}")
-            logging.error(f"CRITICAL: Failed to create background task for {request_id}: {task_creation_error}")
-            # Optionally update the JSON here to indicate task creation failure
-            request_data["status"] = "task_creation_failed"
-            request_data["error"] = {"message": str(task_creation_error), "type": type(task_creation_error).__name__}
-            request_data["logs"] = log_messages
-            with open(file_path, "w") as f:
-                json.dump(request_data, f, indent=4)
-            log_and_capture(f"Saved task creation failure status to {file_path}")
-
-        log_and_capture("Returning initial response while background task monitors.") # Log before returning
+        
         return initial_response
 
     except Exception as e:
