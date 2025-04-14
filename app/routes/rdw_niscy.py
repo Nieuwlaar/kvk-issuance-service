@@ -289,13 +289,13 @@ async def verify_pid_authentication():
                         )
                         log_and_capture(f"Found PID card: {pid_card.get_attribute('outerHTML')}")
                         
-                        # Find and click the View Content button
-                        view_content_button = pid_card.find_element(By.XPATH, ".//button[.//span[contains(text(), 'View Content')]]")
+                        # Find and click the View Content button using the correct Angular Material selector
+                        view_content_button = pid_card.find_element(By.CSS_SELECTOR, "button.mdc-button--outlined span.mdc-button__label")
                         log_and_capture(f"Found View Content button: {view_content_button.get_attribute('outerHTML')}")
                         view_content_button.click()
                         log_and_capture("Clicked View Content button")
                         
-                        # Wait for the dialog to appear with multiple possible selectors
+                        # Wait for the dialog to appear with Angular Material specific selectors
                         dialog_selectors = [
                             (By.CSS_SELECTOR, "div[role='dialog']"),
                             (By.CSS_SELECTOR, "div.modal-content"),
