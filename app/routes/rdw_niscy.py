@@ -265,40 +265,75 @@ async def verify_pid_authentication():
         # Start a background task to monitor the presentation results
         async def monitor_presentation_results():
             try:
+                log_and_capture("Starting to monitor for presentation results")
+                
                 # Wait for the presentation results to appear
+                log_and_capture("Waiting for vc-presentations-results element")
                 wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "vc-presentations-results")))
+                log_and_capture("Found vc-presentations-results element")
                 
-                # Wait for the "View Content" button to be clickable
-                view_content_button = wait.until(EC.element_to_be_clickable(
-                    (By.CSS_SELECTOR, "button.mdc-button--outlined")
-                ))
-                view_content_button.click()
+                # Wait for any button that might be the View Content button
+                log_and_capture("Looking for any clickable buttons")
+                buttons = driver.find_elements(By.CSS_SELECTOR, "button")
+                log_and_capture(f"Found {len(buttons)} buttons")
                 
-                # Wait for the dialog to appear and extract data
+                # Try to find and click any button that might open the dialog
+                for button in buttons:
+                    try:
+                        button_text = button.text
+                        log_and_capture(f"Found button with text: {button_text}")
+                        if button.is_displayed() and button.is_enabled():
+                            log_and_capture(f"Clicking button: {button_text}")
+                            button.click()
+                            break
+                    except Exception as e:
+                        log_and_capture(f"Error clicking button: {str(e)}")
+                        continue
+                
+                # Wait for the dialog to appear
+                log_and_capture("Waiting for dialog content")
                 wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "mat-dialog-content")))
+                log_and_capture("Found dialog content")
                 
-                # Extract the data from the list items
-                birth_date = driver.find_element(
-                    By.XPATH, 
-                    "//span[contains(text(), 'eu.europa.ec.eudi.pid.1:birth_date')]/following-sibling::span"
-                ).text.split("value: ")[1].split("\n")[0].strip()
+                # Get all the content from the dialog
+                dialog_content = driver.find_element(By.CSS_SELECTOR, "mat-dialog-content")
+                all_text = dialog_content.text
+                log_and_capture(f"Dialog content: {all_text}")
                 
-                family_name = driver.find_element(
-                    By.XPATH, 
-                    "//span[contains(text(), 'eu.europa.ec.eudi.pid.1:family_name')]/following-sibling::span"
-                ).text.strip()
+                # Try to extract the specific fields we need
+                presentation_data = {}
+                try:
+                    birth_date = driver.find_element(
+                        By.XPATH, 
+                        "//span[contains(text(), 'eu.europa.ec.eudi.pid.1:birth_date')]/following-sibling::span"
+                    ).text.split("value: ")[1].split("\n")[0].strip()
+                    presentation_data["birth_date"] = birth_date
+                except Exception as e:
+                    log_and_capture(f"Error extracting birth_date: {str(e)}")
                 
-                given_name = driver.find_element(
-                    By.XPATH, 
-                    "//span[contains(text(), 'eu.europa.ec.eudi.pid.1:given_name')]/following-sibling::span"
-                ).text.strip()
+                try:
+                    family_name = driver.find_element(
+                        By.XPATH, 
+                        "//span[contains(text(), 'eu.europa.ec.eudi.pid.1:family_name')]/following-sibling::span"
+                    ).text.strip()
+                    presentation_data["family_name"] = family_name
+                except Exception as e:
+                    log_and_capture(f"Error extracting family_name: {str(e)}")
                 
-                # Update the JSON file with the presentation data
+                try:
+                    given_name = driver.find_element(
+                        By.XPATH, 
+                        "//span[contains(text(), 'eu.europa.ec.eudi.pid.1:given_name')]/following-sibling::span"
+                    ).text.strip()
+                    presentation_data["given_name"] = given_name
+                except Exception as e:
+                    log_and_capture(f"Error extracting given_name: {str(e)}")
+                
+                # Update the JSON file with all the data we found
                 request_data["status"] = "success"
                 request_data["presentation_data"] = {
-                    "birth_date": birth_date,
-                    "family_name": family_name,
-                    "given_name": given_name,
+                    "raw_content": all_text,
+                    "extracted_data": presentation_data,
                     "presentation_timestamp": datetime.now().isoformat()
                 }
                 
