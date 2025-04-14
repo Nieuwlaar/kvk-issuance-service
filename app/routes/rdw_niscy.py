@@ -278,6 +278,24 @@ async def verify_pid_authentication():
                     )
                     log_and_capture("Found vc-presentations-results element")
                     
+                    # Find and click the View Content button
+                    view_content_button = wait.until(
+                        EC.element_to_be_clickable((By.CSS_SELECTOR, "button[data-testid='view-content-button']"))
+                    )
+                    log_and_capture("Found View Content button")
+                    view_content_button.click()
+                    log_and_capture("Clicked View Content button")
+                    
+                    # Wait for the dialog to appear and capture its content
+                    dialog = wait.until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, "div[role='dialog']"))
+                    )
+                    log_and_capture("Found dialog element")
+                    
+                    # Get the dialog content
+                    dialog_content = dialog.get_attribute('innerHTML')
+                    log_and_capture("Captured dialog content")
+                    
                     # Get the entire page source and save it
                     page_source = driver.page_source
                     log_and_capture("Captured page source")
@@ -305,6 +323,7 @@ async def verify_pid_authentication():
                     request_data["status"] = "success"
                     request_data["presentation_data"] = {
                         "page_source": page_source,
+                        "dialog_content": dialog_content,
                         "visible_elements": element_data,
                         "capture_timestamp": datetime.now().isoformat()
                     }
