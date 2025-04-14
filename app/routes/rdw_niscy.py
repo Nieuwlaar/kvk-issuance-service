@@ -453,9 +453,22 @@ async def verify_pid_authentication():
 
         # Start the monitoring task
         import asyncio
-        log_and_capture("Creating background task to monitor results") # Log task creation
-        asyncio.create_task(monitor_presentation_results())
-        
+        log_and_capture("Preparing to create background task...") # Log before task creation
+        try:
+            task = asyncio.create_task(monitor_presentation_results())
+            log_and_capture(f"Background task created: {task.get_name()}") # Log after task creation
+        except Exception as task_creation_error:
+            log_and_capture(f"CRITICAL: Failed to create background task: {task_creation_error}")
+            logging.error(f"CRITICAL: Failed to create background task for {request_id}: {task_creation_error}")
+            # Optionally update the JSON here to indicate task creation failure
+            request_data["status"] = "task_creation_failed"
+            request_data["error"] = {"message": str(task_creation_error), "type": type(task_creation_error).__name__}
+            request_data["logs"] = log_messages
+            with open(file_path, "w") as f:
+                json.dump(request_data, f, indent=4)
+            log_and_capture(f"Saved task creation failure status to {file_path}")
+
+        log_and_capture("Returning initial response while background task monitors.") # Log before returning
         return initial_response
 
     except Exception as e:
