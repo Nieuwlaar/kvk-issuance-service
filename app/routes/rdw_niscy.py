@@ -11,6 +11,9 @@ from selenium.webdriver.chrome.service import Service
 import time
 from typing import List
 import uuid
+import json
+import os
+from pathlib import Path
 
 # Create router with prefix
 router = APIRouter()
@@ -231,13 +234,96 @@ async def verify_pid_authentication():
             
             log_and_capture(f"Wallet link: {wallet_link}")
             
-            return {
+            # Create authentication-requests directory if it doesn't exist
+            auth_requests_dir = Path("authentication-requests")
+            auth_requests_dir.mkdir(exist_ok=True)
+
+            # Prepare initial data to store
+            request_data = {
+                "id": request_id,
+                "nonce": nonce,
+                "wallet_link": wallet_link,
+                "timestamp": datetime.now().isoformat(),
+                "status": "pending",
+                "presentation_data": None
+            }
+
+            # Save initial JSON file
+            file_path = auth_requests_dir / f"{request_id}.json"
+            with open(file_path, "w") as f:
+                json.dump(request_data, f, indent=4)
+
+            log_and_capture(f"Saved authentication request data to {file_path}")
+            
+            # Return initial response with QR code
+            initial_response = {
                 "status": "success",
                 "data": {
+                    "id": request_id,
                     "wallet_link": wallet_link
                 },
                 "logs": log_messages
             }
+
+            # Start a background task to monitor the presentation results
+            async def monitor_presentation_results():
+                try:
+                    # Wait for the presentation results to appear
+                    wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "vc-presentations-results")))
+                    
+                    # Wait for the "View Content" button to be clickable
+                    view_content_button = wait.until(EC.element_to_be_clickable(
+                        (By.CSS_SELECTOR, "button.mdc-button--outlined")
+                    ))
+                    view_content_button.click()
+                    
+                    # Wait for the dialog to appear and extract data
+                    wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "mat-dialog-content")))
+                    
+                    # Extract the data from the list items
+                    birth_date = driver.find_element(
+                        By.XPATH, 
+                        "//span[contains(text(), 'eu.europa.ec.eudi.pid.1:birth_date')]/following-sibling::span"
+                    ).text.split("value: ")[1].split("\n")[0].strip()
+                    
+                    family_name = driver.find_element(
+                        By.XPATH, 
+                        "//span[contains(text(), 'eu.europa.ec.eudi.pid.1:family_name')]/following-sibling::span"
+                    ).text.strip()
+                    
+                    given_name = driver.find_element(
+                        By.XPATH, 
+                        "//span[contains(text(), 'eu.europa.ec.eudi.pid.1:given_name')]/following-sibling::span"
+                    ).text.strip()
+                    
+                    # Update the JSON file with the presentation data
+                    request_data["status"] = "success"
+                    request_data["presentation_data"] = {
+                        "birth_date": birth_date,
+                        "family_name": family_name,
+                        "given_name": given_name,
+                        "presentation_timestamp": datetime.now().isoformat()
+                    }
+                    
+                    with open(file_path, "w") as f:
+                        json.dump(request_data, f, indent=4)
+                    
+                    log_and_capture("Successfully updated authentication request with presentation data")
+                    
+                except Exception as e:
+                    log_and_capture(f"Error monitoring presentation results: {str(e)}")
+                    request_data["status"] = "error"
+                    request_data["error"] = str(e)
+                    with open(file_path, "w") as f:
+                        json.dump(request_data, f, indent=4)
+                finally:
+                    driver.quit()
+
+            # Start the monitoring task
+            import asyncio
+            asyncio.create_task(monitor_presentation_results())
+            
+            return initial_response
 
         finally:
             driver.quit()
