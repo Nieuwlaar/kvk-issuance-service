@@ -283,27 +283,15 @@ async def verify_pid_authentication():
                         log_and_capture("Current page source:")
                         log_and_capture(driver.page_source)
                         
-                        # Find all buttons and log them
-                        all_buttons = driver.find_elements(By.TAG_NAME, "button")
-                        log_and_capture(f"Found {len(all_buttons)} buttons on the page")
-                        for i, button in enumerate(all_buttons):
-                            try:
-                                log_and_capture(f"Button {i}: {button.get_attribute('outerHTML')}")
-                            except:
-                                pass
-                        
-                        # Try to find the View Content button by its class and text
-                        view_content_button = wait.until(
-                            EC.element_to_be_clickable((By.CSS_SELECTOR, "button.mdc-button--outlined"))
+                        # Find the mat-card containing the PID credential
+                        pid_card = wait.until(
+                            EC.presence_of_element_located((By.XPATH, "//mat-card[.//mat-card-title[contains(text(), 'eu.europa.ec.eudi.pid.1')]]"))
                         )
-                        log_and_capture(f"Found potential View Content button: {view_content_button.get_attribute('outerHTML')}")
+                        log_and_capture(f"Found PID card: {pid_card.get_attribute('outerHTML')}")
                         
-                        # Verify the button has the correct text
-                        button_text = view_content_button.text.strip()
-                        if "View Content" not in button_text:
-                            raise Exception(f"Button text '{button_text}' does not contain 'View Content'")
-                        
-                        # Click the button
+                        # Find and click the View Content button
+                        view_content_button = pid_card.find_element(By.XPATH, ".//button[.//span[contains(text(), 'View Content')]]")
+                        log_and_capture(f"Found View Content button: {view_content_button.get_attribute('outerHTML')}")
                         view_content_button.click()
                         log_and_capture("Clicked View Content button")
                         
@@ -332,42 +320,53 @@ async def verify_pid_authentication():
                         
                         # Get the dialog content
                         dialog_content = dialog.get_attribute('innerHTML')
-                        log_and_capture("Captured dialog content")
+                        log_and_capture(f"Dialog content: {dialog_content}")
                         
-                        # Get the entire page source and save it
-                        page_source = driver.page_source
-                        log_and_capture("Captured page source")
+                        # Try to find the data elements in the dialog with multiple possible selectors
+                        data_selectors = [
+                            ".//div[contains(@class, 'data-row')]",
+                            ".//div[contains(@class, 'field')]",
+                            ".//div[contains(@class, 'value')]",
+                            ".//div[contains(@class, 'content')]",
+                            ".//div[contains(@class, 'item')]"
+                        ]
                         
-                        # Try to find any elements that might contain the data
-                        all_elements = driver.find_elements(By.XPATH, "//*")
-                        element_data = []
-                        
-                        for element in all_elements:
+                        extracted_data = {}
+                        for selector in data_selectors:
                             try:
-                                if element.is_displayed():
-                                    tag = element.tag_name
-                                    text = element.text
-                                    if text.strip():
-                                        element_data.append({
-                                            "tag": tag,
-                                            "text": text,
-                                            "class": element.get_attribute("class"),
-                                            "id": element.get_attribute("id")
-                                        })
+                                data_elements = dialog.find_elements(By.XPATH, selector)
+                                if data_elements:
+                                    log_and_capture(f"Found data elements using selector: {selector}")
+                                    for element in data_elements:
+                                        try:
+                                            # Get the text content
+                                            text = element.text.strip()
+                                            if text:
+                                                # Try to split into key-value pairs if possible
+                                                if ':' in text:
+                                                    key, value = text.split(':', 1)
+                                                    extracted_data[key.strip()] = value.strip()
+                                                else:
+                                                    extracted_data[text] = True
+                                        except:
+                                            continue
+                                    if extracted_data:
+                                        break
                             except:
                                 continue
                         
-                        # Update the JSON file with all the data we found
+                        log_and_capture(f"Extracted data: {extracted_data}")
+                        
+                        # Update the JSON file with the extracted data
                         request_data["status"] = "success"
                         request_data["presentation_data"] = {
-                            "page_source": page_source,
-                            "dialog_content": dialog_content,
-                            "visible_elements": element_data,
+                            "extracted_data": extracted_data,
+                            "dialog_html": dialog_content,
                             "capture_timestamp": datetime.now().isoformat()
                         }
                         
                     except Exception as e:
-                        log_and_capture(f"Error during dialog interaction: {str(e)}")
+                        log_and_capture(f"Error during data extraction: {str(e)}")
                         # Save error information
                         request_data["status"] = "error"
                         request_data["error"] = {
