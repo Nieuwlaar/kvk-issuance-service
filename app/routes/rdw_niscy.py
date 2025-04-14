@@ -281,7 +281,7 @@ async def verify_pid_authentication():
                     try:
                         # Find and click the View Content button
                         view_content_button = wait.until(
-                            EC.element_to_be_clickable((By.CSS_SELECTOR, "button[data-testid='view-content-button']"))
+                            EC.element_to_be_clickable((By.XPATH, "//*[contains(text(), 'View Content')]"))
                         )
                         log_and_capture("Found View Content button")
                         view_content_button.click()
