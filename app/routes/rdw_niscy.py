@@ -125,55 +125,52 @@ async def verify_pid_authentication():
         logging.info(message)
         log_messages.append(message)
 
+    # Initialize Chrome with options for visibility
+    options = webdriver.ChromeOptions()
+    options.binary_location = "/usr/bin/chromium"
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--disable-software-rasterizer")
+    options.add_argument("--disable-extensions")
+    options.add_argument("--disable-infobars")
+    options.add_argument("--disable-notifications")
+    options.add_argument("--disable-background-networking")
+    options.add_argument("--disable-default-apps")
+    options.add_argument("--disable-sync")
+    options.add_argument("--metrics-recording-only")
+    options.add_argument("--mute-audio")
+    options.add_argument("--no-first-run")
+    options.add_argument("--safebrowsing-disable-auto-update")
+    options.add_argument("--enable-automation")
+    options.add_argument("--password-store=basic")
+    options.add_argument("--headless=new")
+    options.add_argument("--blink-settings=imagesEnabled=false")
+    options.add_argument("--remote-debugging-port=9222")
+    options.add_argument("--window-size=1920x1080")
+    options.add_argument("--single-process")
+    options.add_argument("--no-zygote")
+    options.add_argument(f"--user-data-dir={user_data_dir}")
+
+    # Use the system-installed chromedriver
+    service = Service("/usr/bin/chromedriver")
+    driver = webdriver.Chrome(service=service, options=options)
+    driver.set_page_load_timeout(30)
+    wait = WebDriverWait(driver, 10)
+
     try:
-        log_and_capture("Starting PID Authentication verification process")
+        # Navigate to the verifier website
+        log_and_capture("Navigating to verifier website")
+        driver.get("https://eudi-verifier.nieuwlaar.com/custom-request/create")
 
-        # Initialize Chrome with options for visibility
-        options = webdriver.ChromeOptions()
-        options.binary_location = "/usr/bin/chromium"
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--disable-gpu")
-        options.add_argument("--disable-software-rasterizer")
-        options.add_argument("--disable-extensions")
-        options.add_argument("--disable-infobars")
-        options.add_argument("--disable-notifications")
-        options.add_argument("--disable-background-networking")
-        options.add_argument("--disable-default-apps")
-        options.add_argument("--disable-sync")
-        options.add_argument("--metrics-recording-only")
-        options.add_argument("--mute-audio")
-        options.add_argument("--no-first-run")
-        options.add_argument("--safebrowsing-disable-auto-update")
-        options.add_argument("--enable-automation")
-        options.add_argument("--password-store=basic")
-        options.add_argument("--headless=new")
-        options.add_argument("--blink-settings=imagesEnabled=false")
-        options.add_argument("--remote-debugging-port=9222")
-        options.add_argument("--window-size=1920x1080")
-        options.add_argument("--single-process")
-        options.add_argument("--no-zygote")
-        options.add_argument(f"--user-data-dir={user_data_dir}")
+        # Generate random UUIDs for id and nonce
+        request_id = str(uuid.uuid4())
+        nonce = str(uuid.uuid4())
+        log_and_capture(f"Generated request ID: {request_id}")
+        log_and_capture(f"Generated nonce: {nonce}")
 
-        # Use the system-installed chromedriver
-        service = Service("/usr/bin/chromedriver")
-        driver = webdriver.Chrome(service=service, options=options)
-        driver.set_page_load_timeout(30)
-        wait = WebDriverWait(driver, 10)
-
-        try:
-            # Navigate to the verifier website
-            log_and_capture("Navigating to verifier website")
-            driver.get("https://eudi-verifier.nieuwlaar.com/custom-request/create")
-
-            # Generate random UUIDs for id and nonce
-            request_id = str(uuid.uuid4())
-            nonce = str(uuid.uuid4())
-            log_and_capture(f"Generated request ID: {request_id}")
-            log_and_capture(f"Generated nonce: {nonce}")
-
-            # Prepare the JSON to be entered
-            json_content = f"""{{
+        # Prepare the JSON to be entered
+        json_content = f"""{{
     "type": "vp_token",
     "presentation_definition": {{
         "id": "{request_id}",
@@ -216,124 +213,125 @@ async def verify_pid_authentication():
     "nonce": "{nonce}"
 }}"""
 
-            # Find the text editor and input the JSON
-            log_and_capture("Inputting JSON into the editor")
-            editor = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "div.cm-content")))
-            driver.execute_script("arguments[0].textContent = arguments[1]", editor, json_content)
+        # Find the text editor and input the JSON
+        log_and_capture("Inputting JSON into the editor")
+        editor = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "div.cm-content")))
+        driver.execute_script("arguments[0].textContent = arguments[1]", editor, json_content)
 
-            # Click the Next button
-            log_and_capture("Clicking Next button")
-            next_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "button.primary")))
-            next_button.click()
+        # Click the Next button
+        log_and_capture("Clicking Next button")
+        next_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "button.primary")))
+        next_button.click()
 
-            # Wait for the QR code page to load and get the wallet link
-            log_and_capture("Waiting for QR code page to load")
-            wallet_link = wait.until(EC.presence_of_element_located(
-                (By.CSS_SELECTOR, "a[href^='eudi-openid4vp://']")
-            )).get_attribute('href')
-            
-            log_and_capture(f"Wallet link: {wallet_link}")
-            
-            # Create authentication-requests directory if it doesn't exist
-            auth_requests_dir = Path("authentication-requests")
-            auth_requests_dir.mkdir(exist_ok=True)
+        # Wait for the QR code page to load and get the wallet link
+        log_and_capture("Waiting for QR code page to load")
+        wallet_link = wait.until(EC.presence_of_element_located(
+            (By.CSS_SELECTOR, "a[href^='eudi-openid4vp://']")
+        )).get_attribute('href')
+        
+        log_and_capture(f"Wallet link: {wallet_link}")
+        
+        # Create authentication-requests directory if it doesn't exist
+        auth_requests_dir = Path("authentication-requests")
+        auth_requests_dir.mkdir(exist_ok=True)
 
-            # Prepare initial data to store
-            request_data = {
+        # Prepare initial data to store
+        request_data = {
+            "id": request_id,
+            "nonce": nonce,
+            "wallet_link": wallet_link,
+            "timestamp": datetime.now().isoformat(),
+            "status": "pending",
+            "presentation_data": None
+        }
+
+        # Save initial JSON file
+        file_path = auth_requests_dir / f"{request_id}.json"
+        with open(file_path, "w") as f:
+            json.dump(request_data, f, indent=4)
+
+        log_and_capture(f"Saved authentication request data to {file_path}")
+        
+        # Return initial response with QR code
+        initial_response = {
+            "status": "success",
+            "data": {
                 "id": request_id,
-                "nonce": nonce,
-                "wallet_link": wallet_link,
-                "timestamp": datetime.now().isoformat(),
-                "status": "pending",
-                "presentation_data": None
-            }
+                "wallet_link": wallet_link
+            },
+            "logs": log_messages
+        }
 
-            # Save initial JSON file
-            file_path = auth_requests_dir / f"{request_id}.json"
-            with open(file_path, "w") as f:
-                json.dump(request_data, f, indent=4)
-
-            log_and_capture(f"Saved authentication request data to {file_path}")
-            
-            # Return initial response with QR code
-            initial_response = {
-                "status": "success",
-                "data": {
-                    "id": request_id,
-                    "wallet_link": wallet_link
-                },
-                "logs": log_messages
-            }
-
-            # Start a background task to monitor the presentation results
-            async def monitor_presentation_results():
+        # Start a background task to monitor the presentation results
+        async def monitor_presentation_results():
+            try:
+                # Wait for the presentation results to appear
+                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "vc-presentations-results")))
+                
+                # Wait for the "View Content" button to be clickable
+                view_content_button = wait.until(EC.element_to_be_clickable(
+                    (By.CSS_SELECTOR, "button.mdc-button--outlined")
+                ))
+                view_content_button.click()
+                
+                # Wait for the dialog to appear and extract data
+                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "mat-dialog-content")))
+                
+                # Extract the data from the list items
+                birth_date = driver.find_element(
+                    By.XPATH, 
+                    "//span[contains(text(), 'eu.europa.ec.eudi.pid.1:birth_date')]/following-sibling::span"
+                ).text.split("value: ")[1].split("\n")[0].strip()
+                
+                family_name = driver.find_element(
+                    By.XPATH, 
+                    "//span[contains(text(), 'eu.europa.ec.eudi.pid.1:family_name')]/following-sibling::span"
+                ).text.strip()
+                
+                given_name = driver.find_element(
+                    By.XPATH, 
+                    "//span[contains(text(), 'eu.europa.ec.eudi.pid.1:given_name')]/following-sibling::span"
+                ).text.strip()
+                
+                # Update the JSON file with the presentation data
+                request_data["status"] = "success"
+                request_data["presentation_data"] = {
+                    "birth_date": birth_date,
+                    "family_name": family_name,
+                    "given_name": given_name,
+                    "presentation_timestamp": datetime.now().isoformat()
+                }
+                
+                with open(file_path, "w") as f:
+                    json.dump(request_data, f, indent=4)
+                
+                log_and_capture("Successfully updated authentication request with presentation data")
+                
+            except Exception as e:
+                log_and_capture(f"Error monitoring presentation results: {str(e)}")
+                request_data["status"] = "error"
+                request_data["error"] = str(e)
+                with open(file_path, "w") as f:
+                    json.dump(request_data, f, indent=4)
+            finally:
                 try:
-                    # Wait for the presentation results to appear
-                    wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "vc-presentations-results")))
-                    
-                    # Wait for the "View Content" button to be clickable
-                    view_content_button = wait.until(EC.element_to_be_clickable(
-                        (By.CSS_SELECTOR, "button.mdc-button--outlined")
-                    ))
-                    view_content_button.click()
-                    
-                    # Wait for the dialog to appear and extract data
-                    wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "mat-dialog-content")))
-                    
-                    # Extract the data from the list items
-                    birth_date = driver.find_element(
-                        By.XPATH, 
-                        "//span[contains(text(), 'eu.europa.ec.eudi.pid.1:birth_date')]/following-sibling::span"
-                    ).text.split("value: ")[1].split("\n")[0].strip()
-                    
-                    family_name = driver.find_element(
-                        By.XPATH, 
-                        "//span[contains(text(), 'eu.europa.ec.eudi.pid.1:family_name')]/following-sibling::span"
-                    ).text.strip()
-                    
-                    given_name = driver.find_element(
-                        By.XPATH, 
-                        "//span[contains(text(), 'eu.europa.ec.eudi.pid.1:given_name')]/following-sibling::span"
-                    ).text.strip()
-                    
-                    # Update the JSON file with the presentation data
-                    request_data["status"] = "success"
-                    request_data["presentation_data"] = {
-                        "birth_date": birth_date,
-                        "family_name": family_name,
-                        "given_name": given_name,
-                        "presentation_timestamp": datetime.now().isoformat()
-                    }
-                    
-                    with open(file_path, "w") as f:
-                        json.dump(request_data, f, indent=4)
-                    
-                    log_and_capture("Successfully updated authentication request with presentation data")
-                    
-                except Exception as e:
-                    log_and_capture(f"Error monitoring presentation results: {str(e)}")
-                    request_data["status"] = "error"
-                    request_data["error"] = str(e)
-                    with open(file_path, "w") as f:
-                        json.dump(request_data, f, indent=4)
-                finally:
-                    try:
-                        driver.quit()
-                    except:
-                        pass
+                    driver.quit()
+                except:
+                    pass
 
-            # Start the monitoring task
-            import asyncio
-            asyncio.create_task(monitor_presentation_results())
-            
-            return initial_response
+        # Start the monitoring task
+        import asyncio
+        asyncio.create_task(monitor_presentation_results())
+        
+        return initial_response
 
-        finally:
-            driver.quit()
-            
     except Exception as e:
         err_msg = f"Error in verify_pid_authentication: {str(e)}"
         logging.error(err_msg)
         logging.exception("Stack trace:")
         log_messages.append(f"ERROR: {err_msg}")
+        try:
+            driver.quit()
+        except:
+            pass
         raise HTTPException(status_code=500, detail={"error": str(e), "logs": log_messages})
