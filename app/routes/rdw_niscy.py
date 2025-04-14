@@ -279,15 +279,29 @@ async def verify_pid_authentication():
                     log_and_capture("Found vc-presentations-results element")
                     
                     try:
-                        # Log the current page source for debugging
+                        # Log the current page source and visible elements for debugging
                         log_and_capture("Current page source:")
                         log_and_capture(driver.page_source)
                         
-                        # Find any button containing "View Content" text
+                        # Find all buttons and log them
+                        all_buttons = driver.find_elements(By.TAG_NAME, "button")
+                        log_and_capture(f"Found {len(all_buttons)} buttons on the page")
+                        for i, button in enumerate(all_buttons):
+                            try:
+                                log_and_capture(f"Button {i}: {button.get_attribute('outerHTML')}")
+                            except:
+                                pass
+                        
+                        # Try to find the View Content button by its class and text
                         view_content_button = wait.until(
-                            EC.element_to_be_clickable((By.XPATH, "//button[.//span[text()='View Content']]"))
+                            EC.element_to_be_clickable((By.CSS_SELECTOR, "button.mdc-button--outlined"))
                         )
-                        log_and_capture(f"Found View Content button: {view_content_button.get_attribute('outerHTML')}")
+                        log_and_capture(f"Found potential View Content button: {view_content_button.get_attribute('outerHTML')}")
+                        
+                        # Verify the button has the correct text
+                        button_text = view_content_button.text.strip()
+                        if "View Content" not in button_text:
+                            raise Exception(f"Button text '{button_text}' does not contain 'View Content'")
                         
                         # Click the button
                         view_content_button.click()
