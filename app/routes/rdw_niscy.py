@@ -278,60 +278,93 @@ async def verify_pid_authentication():
                     )
                     log_and_capture("Found vc-presentations-results element")
                     
-                    # Find and click the View Content button
-                    view_content_button = wait.until(
-                        EC.element_to_be_clickable((By.CSS_SELECTOR, "button[data-testid='view-content-button']"))
-                    )
-                    log_and_capture("Found View Content button")
-                    view_content_button.click()
-                    log_and_capture("Clicked View Content button")
-                    
-                    # Wait for the dialog to appear and capture its content
-                    dialog = wait.until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, "div[role='dialog']"))
-                    )
-                    log_and_capture("Found dialog element")
-                    
-                    # Get the dialog content
-                    dialog_content = dialog.get_attribute('innerHTML')
-                    log_and_capture("Captured dialog content")
-                    
-                    # Get the entire page source and save it
-                    page_source = driver.page_source
-                    log_and_capture("Captured page source")
-                    
-                    # Try to find any elements that might contain the data
-                    all_elements = driver.find_elements(By.XPATH, "//*")
-                    element_data = []
-                    
-                    for element in all_elements:
+                    try:
+                        # Find and click the View Content button
+                        view_content_button = wait.until(
+                            EC.element_to_be_clickable((By.CSS_SELECTOR, "button[data-testid='view-content-button']"))
+                        )
+                        log_and_capture("Found View Content button")
+                        view_content_button.click()
+                        log_and_capture("Clicked View Content button")
+                        
+                        # Wait for the dialog to appear with multiple possible selectors
+                        dialog_selectors = [
+                            (By.CSS_SELECTOR, "div[role='dialog']"),
+                            (By.CSS_SELECTOR, "div.modal-content"),
+                            (By.CSS_SELECTOR, "div.modal-dialog"),
+                            (By.CSS_SELECTOR, "div[class*='modal']"),
+                            (By.CSS_SELECTOR, "div[class*='dialog']")
+                        ]
+                        
+                        dialog = None
+                        for selector in dialog_selectors:
+                            try:
+                                dialog = WebDriverWait(driver, 5).until(
+                                    EC.presence_of_element_located(selector)
+                                )
+                                log_and_capture(f"Found dialog using selector: {selector[1]}")
+                                break
+                            except:
+                                continue
+                        
+                        if not dialog:
+                            raise Exception("Dialog not found with any of the selectors")
+                        
+                        # Get the dialog content
+                        dialog_content = dialog.get_attribute('innerHTML')
+                        log_and_capture("Captured dialog content")
+                        
+                        # Get the entire page source and save it
+                        page_source = driver.page_source
+                        log_and_capture("Captured page source")
+                        
+                        # Try to find any elements that might contain the data
+                        all_elements = driver.find_elements(By.XPATH, "//*")
+                        element_data = []
+                        
+                        for element in all_elements:
+                            try:
+                                if element.is_displayed():
+                                    tag = element.tag_name
+                                    text = element.text
+                                    if text.strip():
+                                        element_data.append({
+                                            "tag": tag,
+                                            "text": text,
+                                            "class": element.get_attribute("class"),
+                                            "id": element.get_attribute("id")
+                                        })
+                            except:
+                                continue
+                        
+                        # Update the JSON file with all the data we found
+                        request_data["status"] = "success"
+                        request_data["presentation_data"] = {
+                            "page_source": page_source,
+                            "dialog_content": dialog_content,
+                            "visible_elements": element_data,
+                            "capture_timestamp": datetime.now().isoformat()
+                        }
+                        
+                    except Exception as e:
+                        log_and_capture(f"Error during dialog interaction: {str(e)}")
+                        # Save error information
+                        request_data["status"] = "error"
+                        request_data["error"] = {
+                            "message": str(e),
+                            "type": type(e).__name__,
+                            "timestamp": datetime.now().isoformat()
+                        }
+                        # Still save the page source for debugging
                         try:
-                            if element.is_displayed():
-                                tag = element.tag_name
-                                text = element.text
-                                if text.strip():
-                                    element_data.append({
-                                        "tag": tag,
-                                        "text": text,
-                                        "class": element.get_attribute("class"),
-                                        "id": element.get_attribute("id")
-                                    })
-                        except:
-                            continue
-                    
-                    # Update the JSON file with all the data we found
-                    request_data["status"] = "success"
-                    request_data["presentation_data"] = {
-                        "page_source": page_source,
-                        "dialog_content": dialog_content,
-                        "visible_elements": element_data,
-                        "capture_timestamp": datetime.now().isoformat()
-                    }
-                    
-                    with open(file_path, "w") as f:
-                        json.dump(request_data, f, indent=4)
-                    
-                    log_and_capture("Successfully updated authentication request with presentation data")
+                            page_source = driver.page_source
+                            request_data["presentation_data"] = {
+                                "page_source": page_source,
+                                "error": str(e),
+                                "capture_timestamp": datetime.now().isoformat()
+                            }
+                        except Exception as page_source_error:
+                            log_and_capture(f"Error capturing page source: {str(page_source_error)}")
                     
                 except Exception as e:
                     log_and_capture(f"Error during data capture: {str(e)}")
