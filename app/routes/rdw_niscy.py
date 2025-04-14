@@ -279,19 +279,17 @@ async def verify_pid_authentication():
                     log_and_capture("Found vc-presentations-results element")
                     
                     try:
-                        # First find the mat-card containing the PID credential
-                        pid_card = wait.until(
-                            EC.presence_of_element_located((By.XPATH, "//mat-card[.//mat-card-title[contains(text(), 'eu.europa.ec.eudi.pid.1')]]"))
+                        # Log the current page source for debugging
+                        log_and_capture("Current page source:")
+                        log_and_capture(driver.page_source)
+                        
+                        # Find any button containing "View Content" text
+                        view_content_button = wait.until(
+                            EC.element_to_be_clickable((By.XPATH, "//button[.//span[text()='View Content']]"))
                         )
-                        log_and_capture("Found PID credential card")
+                        log_and_capture(f"Found View Content button: {view_content_button.get_attribute('outerHTML')}")
                         
-                        # Then find the View Content button within that card
-                        view_content_button = pid_card.find_element(By.XPATH, ".//button[.//span[contains(text(), 'View Content')]]")
-                        log_and_capture("Found View Content button")
-                        
-                        # Scroll the button into view and click it
-                        driver.execute_script("arguments[0].scrollIntoView(true);", view_content_button)
-                        time.sleep(0.5)  # Small delay to ensure scrolling is complete
+                        # Click the button
                         view_content_button.click()
                         log_and_capture("Clicked View Content button")
                         
