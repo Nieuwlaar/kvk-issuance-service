@@ -14,6 +14,7 @@ import uuid
 import json
 import os
 from pathlib import Path
+import re
 
 # Create router with prefix
 router = APIRouter()
@@ -207,42 +208,158 @@ async def extract_pid_data(request_id: str):
             
             # Get the dialog content
             log_and_capture("Getting dialog content")
-            dialog_content = dialog.get_attribute('innerHTML')
-            dialog_text = dialog.text
-            log_and_capture(f"Dialog content Text: {dialog_text}")
+            try:
+                dialog_content = dialog.get_attribute('innerHTML') if dialog else ""
+                dialog_text = dialog.text if dialog else ""
+                log_and_capture(f"Dialog content Text: {dialog_text}")
+            except Exception as e:
+                log_and_capture(f"Error getting dialog content: {str(e)}")
+                dialog_content = ""
+                dialog_text = ""
 
             # Extract the specific fields we need
             log_and_capture("Extracting specific fields (birth_date, given_name, family_name) from dialog text")
             extracted_data = {}
             
             # Try to extract from dialog text
-            lines = dialog_text.split('\n')  # Split by newline characters
-            required_fields = ['given_name', 'family_name', 'birth_date']
-            found_fields = set()
-            log_and_capture(f"Parsing {len(lines)} lines from dialog text")
-
-            for line in lines:
-                line = line.strip()
-                if ':' in line:
-                    key, value = line.split(':', 1)
-                    norm_key = key.strip().lower().replace(" ", "_")  # Normalize key
-                    value = value.strip()
-                    log_and_capture(f"Parsed line: Key='{norm_key}', Value='{value}'")
-                    if norm_key in required_fields:
-                        extracted_data[norm_key] = value
-                        found_fields.add(norm_key)
-                        log_and_capture(f"*** Extracted {norm_key}: {value} ***")
+            try:
+                # More robust parsing logic for the Angular Material dialog format
+                birth_date_patterns = [
+                    r"eu\.europa\.ec\.eudi\.pid\.1:birth_date\s+value:\s*(\d{4}-\d{2}-\d{2})",
+                    r"birth_date\s+(?:value:)?\s*(\d{4}-\d{2}-\d{2})",
+                    r"birth.date.*?(\d{4}-\d{2}-\d{2})",
+                    r"value:\s*(\d{4}-\d{2}-\d{2})"
+                ]
+                
+                family_name_patterns = [
+                    r"eu\.europa\.ec\.eudi\.pid\.1:family_name\s+(?:\n|\r\n?)([^\n\r]+)",
+                    r"family.name.*?(?:\n|\r\n?)([^\n\r]+)",
+                    r"family.name[^\n\r]*?([^\n\r:]+)$"
+                ]
+                
+                given_name_patterns = [
+                    r"eu\.europa\.ec\.eudi\.pid\.1:given_name\s+(?:\n|\r\n?)([^\n\r]+)",
+                    r"given.name.*?(?:\n|\r\n?)([^\n\r]+)",
+                    r"given.name[^\n\r]*?([^\n\r:]+)$"
+                ]
+                
+                # Try each pattern for birth_date
+                for pattern in birth_date_patterns:
+                    birth_date_match = re.search(pattern, dialog_text, re.IGNORECASE)
+                    if birth_date_match:
+                        extracted_data["birth_date"] = birth_date_match.group(1).strip()
+                        log_and_capture(f"*** Extracted birth_date: {extracted_data['birth_date']} using pattern: {pattern} ***")
+                        break
+                
+                # Try each pattern for family_name
+                for pattern in family_name_patterns:
+                    family_name_match = re.search(pattern, dialog_text, re.IGNORECASE)
+                    if family_name_match:
+                        extracted_data["family_name"] = family_name_match.group(1).strip()
+                        log_and_capture(f"*** Extracted family_name: {extracted_data['family_name']} using pattern: {pattern} ***")
+                        break
+                
+                # Try each pattern for given_name
+                for pattern in given_name_patterns:
+                    given_name_match = re.search(pattern, dialog_text, re.IGNORECASE)
+                    if given_name_match:
+                        extracted_data["given_name"] = given_name_match.group(1).strip()
+                        log_and_capture(f"*** Extracted given_name: {extracted_data['given_name']} using pattern: {pattern} ***")
+                        break
+                
+                # Fallback: Try to parse by lines
+                if len(extracted_data) < 3:
+                    lines = dialog_text.split('\n')  # Split by newline characters
+                    log_and_capture(f"Trying line-by-line parsing of {len(lines)} lines")
+                    
+                    current_field = None
+                    for line in lines:
+                        line = line.strip()
+                        if not line:
+                            continue
+                            
+                        # Check if this is a field name line
+                        if "birth_date" in line.lower():
+                            current_field = "birth_date"
+                            # Try to extract from this line too
+                            if ":" in line:
+                                value = line.split(":", 1)[1].strip()
+                                if re.match(r"\d{4}-\d{2}-\d{2}", value):
+                                    extracted_data["birth_date"] = value
+                                    log_and_capture(f"*** Extracted birth_date from line: {value} ***")
+                        elif "family_name" in line.lower():
+                            current_field = "family_name"
+                        elif "given_name" in line.lower():
+                            current_field = "given_name"
+                        # If not a field name and we have a current field, this might be the value
+                        elif current_field and current_field not in extracted_data:
+                            # For birth_date, ensure it matches date format
+                            if current_field == "birth_date":
+                                if re.match(r"\d{4}-\d{2}-\d{2}", line):
+                                    extracted_data["birth_date"] = line
+                                    log_and_capture(f"*** Extracted {current_field} from next line: {line} ***")
+                            else:
+                                extracted_data[current_field] = line
+                                log_and_capture(f"*** Extracted {current_field} from next line: {line} ***")
+                            current_field = None
+                
+                # Final fallback: Try to extract directly from HTML elements if regex didn't work
+                required_fields = {'given_name', 'family_name', 'birth_date'}
+                missing_fields = required_fields - set(extracted_data.keys())
+                
+                if missing_fields:
+                    log_and_capture(f"Missing fields after parsing: {missing_fields}. Trying direct element extraction.")
+                    
+                    try:
+                        # Find list items in the dialog that contain the field data
+                        list_items = dialog.find_elements(By.CSS_SELECTOR, "mat-list-item, .list-item, li")
+                        log_and_capture(f"Found {len(list_items)} list items in dialog")
+                        
+                        for item in list_items:
+                            item_text = item.text
+                            log_and_capture(f"List item text: {item_text}")
+                            
+                            if "birth_date" in item_text.lower() and "birth_date" not in extracted_data:
+                                # Get value part from item like "birth_date value: 2025-04-02 tag: 1004"
+                                value_match = re.search(r"value:\s*(\d{4}-\d{2}-\d{2})", item_text)
+                                if value_match:
+                                    extracted_data["birth_date"] = value_match.group(1)
+                                    log_and_capture(f"*** Extracted birth_date from element: {extracted_data['birth_date']} ***")
+                            
+                            elif "family_name" in item_text.lower() and "family_name" not in extracted_data:
+                                # Try to extract based on line break or colon
+                                if "\n" in item_text:
+                                    parts = item_text.split("\n")
+                                    if len(parts) > 1:
+                                        extracted_data["family_name"] = parts[1].strip()
+                                        log_and_capture(f"*** Extracted family_name from element: {extracted_data['family_name']} ***")
+                            
+                            elif "given_name" in item_text.lower() and "given_name" not in extracted_data:
+                                # Try to extract based on line break or colon
+                                if "\n" in item_text:
+                                    parts = item_text.split("\n")
+                                    if len(parts) > 1:
+                                        extracted_data["given_name"] = parts[1].strip()
+                                        log_and_capture(f"*** Extracted given_name from element: {extracted_data['given_name']} ***")
+                    
+                    except Exception as e:
+                        log_and_capture(f"Error during element extraction: {str(e)}")
+            except Exception as ex:
+                log_and_capture(f"Error during dialog text extraction: {str(ex)}")
             
-            # Update the request data with the extracted information
+            # Update the request data to include the extracted information
             if extracted_data:
                 log_and_capture(f"Successfully extracted {len(extracted_data)} fields: {', '.join(extracted_data.keys())}")
+                
+                # Initialize presentation_data if it doesn't exist
+                if request_data.get("presentation_data") is None:
+                    request_data["presentation_data"] = {}
+                
                 # Update the request_data
                 request_data["status"] = "success"
-                request_data["presentation_data"] = {
-                    "extracted_data": extracted_data,
-                    "dialog_html_length": len(dialog_content),  # Store length instead of full HTML
-                    "capture_timestamp": datetime.now().isoformat()
-                }
+                request_data["presentation_data"]["extracted_data"] = extracted_data
+                request_data["presentation_data"]["dialog_html_length"] = len(dialog_content) if dialog_content else 0
+                request_data["presentation_data"]["capture_timestamp"] = datetime.now().isoformat()
                 request_data["logs"] = log_messages
                 
                 # Save updated request data
@@ -493,3 +610,59 @@ async def verify_pid_authentication():
         except:
             pass
         raise HTTPException(status_code=500, detail={"error": str(e), "logs": log_messages})
+
+@router.get("/debug/active-sessions")
+async def get_active_sessions():
+    """Return information about active sessions for debugging purposes."""
+    try:
+        session_info = {}
+        for session_id, session_data in active_sessions.items():
+            # Don't include the driver or wait objects in the response
+            session_info[session_id] = {
+                "timestamp": session_data.get("timestamp", "unknown"),
+                "file_path": str(session_data.get("file_path", "unknown")),
+                "has_driver": session_data.get("driver") is not None,
+                "has_wait": session_data.get("wait") is not None
+            }
+        
+        return {
+            "status": "success",
+            "active_session_count": len(active_sessions),
+            "sessions": session_info
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Error retrieving active sessions: {str(e)}"
+        }
+
+@router.delete("/debug/active-sessions/{session_id}")
+async def delete_active_session(session_id: str):
+    """Delete an active session by ID."""
+    try:
+        if session_id not in active_sessions:
+            return {
+                "status": "not_found",
+                "message": f"No active session found with ID: {session_id}"
+            }
+        
+        # Close the driver if it exists
+        try:
+            driver = active_sessions[session_id].get("driver")
+            if driver:
+                driver.quit()
+        except Exception as e:
+            logging.error(f"Error closing driver for session {session_id}: {str(e)}")
+        
+        # Remove the session
+        del active_sessions[session_id]
+        
+        return {
+            "status": "success",
+            "message": f"Session {session_id} deleted successfully"
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Error deleting session {session_id}: {str(e)}"
+        }
