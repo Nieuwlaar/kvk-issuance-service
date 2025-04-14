@@ -1,20 +1,23 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 import logging
 import tempfile
 from selenium import webdriver
+from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.service import Service
 import time
-from typing import List
+from typing import List, Optional, Dict, Any
 import uuid
 import json
 import os
 from pathlib import Path
 import re
+
+logger = logging.getLogger(__name__)
 
 # Create router with prefix
 router = APIRouter()
@@ -344,7 +347,7 @@ async def extract_pid_data(request_id: str):
         }
 
 @router.get("/pid-authentication")
-async def verify_pid_authentication():
+async def verify_pid_authentication(background_tasks: BackgroundTasks):
     # List to capture log messages for the response
     log_messages: List[str] = []
     def log_and_capture(message: str):
@@ -388,9 +391,10 @@ async def verify_pid_authentication():
     service = Service("/usr/bin/chromedriver")
     driver = None # Initialize driver to None for cleanup
     try:
+        log_and_capture("Initializing WebDriver...")
         driver = webdriver.Chrome(service=service, options=options)
-        driver.set_page_load_timeout(15)  # Reduced timeout: 15 seconds
-        wait = WebDriverWait(driver, 7)  # Slightly longer default wait: 7 seconds
+        driver.set_page_load_timeout(20)  # Increased slightly from 15
+        short_wait = WebDriverWait(driver, 10) # Increased slightly from 7
 
         # Navigate to the verifier website
         log_and_capture("Navigating to verifier website")
@@ -430,7 +434,7 @@ async def verify_pid_authentication():
         try:
             editor_selector = "div.cm-content"
             # Ensure element is present before executing script
-            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, editor_selector)))
+            short_wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, editor_selector)))
             driver.execute_script(
                 f"document.querySelector('{editor_selector}').textContent = arguments[0]; "
                 f"document.querySelector('{editor_selector}').dispatchEvent(new Event('input', {{ bubbles: true }}));", 
@@ -445,7 +449,7 @@ async def verify_pid_authentication():
         try:
             next_button_selector = "button.primary"
             # Ensure button is clickable
-            next_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, next_button_selector)))
+            next_button = short_wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, next_button_selector)))
             driver.execute_script("arguments[0].click();", next_button) 
         except Exception as e:
              log_and_capture(f"JS click failed for Next button: {str(e)}. Raising error.")
@@ -454,7 +458,7 @@ async def verify_pid_authentication():
         # Wait for the QR code page (wallet link) to load
         log_and_capture("Waiting for wallet link to appear")
         wallet_link_selector = "a[href^='eudi-openid4vp://']"
-        wallet_link = wait.until(EC.presence_of_element_located(
+        wallet_link = short_wait.until(EC.presence_of_element_located(
             (By.CSS_SELECTOR, wallet_link_selector)
         )).get_attribute('href')
         
@@ -491,9 +495,13 @@ async def verify_pid_authentication():
         }
         log_and_capture(f"Stored driver session for request ID: {request_id}")
         
-        # **Important**: Don't return the driver object here
-        # It stays alive for the extraction endpoint
-        driver = None # Prevent driver from being cleaned up in finally block
+        # Schedule the background task
+        background_tasks.add_task(handle_pid_extraction_in_background, request_id)
+        log_and_capture(f"Scheduled background task for {request_id}")
+
+        # Prevent driver cleanup in finally block as it's needed by the background task
+        driver_passed_to_bg = driver
+        driver = None
 
         # Return initial response
         initial_response = {
@@ -503,7 +511,7 @@ async def verify_pid_authentication():
                 "wallet_link": wallet_link,
                 "extraction_endpoint": f"/pid-extraction/{request_id}"
             },
-            "message": "Authentication initiated. Complete wallet flow, then call extraction endpoint.",
+            "message": "Authentication initiated. Background task started. Poll the extraction endpoint for status.",
             "logs": log_messages
         }
         
@@ -514,12 +522,16 @@ async def verify_pid_authentication():
         logging.error(err_msg)
         logging.exception("Stack trace:") # Log full stack trace for debugging
         log_messages.append(f"ERROR: {err_msg}")
+        # Ensure driver is quit if error happens *before* passing to background task
+        if driver:
+             try: driver.quit()
+             except: pass
         raise HTTPException(status_code=500, detail={"error": str(e), "logs": log_messages})
     finally:
-        # Cleanup the driver ONLY if it wasn't passed to active_sessions
-        if driver: 
+        # Cleanup driver only if it was NOT passed to the background task successfully
+        if driver:
             try:
-                log_and_capture("Cleaning up driver in finally block (error occurred before session storage)")
+                log_and_capture("Cleaning up driver in finally block (error before scheduling task)")
                 driver.quit()
             except Exception as quit_err:
                  log_and_capture(f"Error quitting driver in finally block: {quit_err}")
@@ -579,4 +591,184 @@ async def delete_active_session(session_id: str):
             "status": "error",
             "message": f"Error deleting session {session_id}: {str(e)}"
         }
+
+async def handle_pid_extraction_in_background(request_id: str):
+    """Background task to handle Selenium interaction and data extraction."""
+    session_data = active_sessions.get(request_id)
+    if not session_data:
+        logging.error(f"[BG Task {request_id}] Session data not found in active_sessions.")
+        return # Cannot proceed
+
+    driver = session_data.get("driver")
+    # Use the long wait object specifically for waiting for user interaction (results container)
+    user_interaction_wait = session_data.get("wait")
+    file_path_str = session_data.get("file_path")
+
+    if not driver or not user_interaction_wait or not file_path_str:
+        logging.error(f"[BG Task {request_id}] Incomplete session data (driver/wait/path missing).")
+        # Attempt cleanup if session exists
+        if request_id in active_sessions:
+            if driver: 
+                try: 
+                    driver.quit()
+                    logging.info(f"[BG Task {request_id}] Quitting driver due to incomplete data.") 
+                except Exception: pass # Corrected here
+            try: 
+                del active_sessions[request_id]
+                logging.info(f"[BG Task {request_id}] Deleting session due to incomplete data.") 
+            except KeyError: pass # Corrected here
+        return
+
+    file_path = Path(file_path_str)
+    log_messages = []
+    request_data = {}
+
+    def log_and_capture(message: str):
+        logging.info(f"[BG Task {request_id}] {message}")
+        log_messages.append(message)
+
+    # Define a shorter wait for actions within the background task
+    action_wait = WebDriverWait(driver, 15) # 15 seconds for element interactions
+
+    try:
+        # Load initial request data and logs from file
+        try:
+            with open(file_path, "r") as f:
+                request_data = json.load(f)
+            # Prepend existing logs
+            existing_logs = request_data.get("logs", [])
+            log_messages.extend(existing_logs)
+            log_and_capture("Background task started.")
+        except Exception as e:
+            log_and_capture(f"Error reading initial session file: {e}")
+            # If file read fails but we have driver, still proceed to try extraction
+            if not request_data: request_data = {} # Ensure request_data is a dict
+
+        # --- Start of Selenium Logic ---
+        results_selector = "vc-presentations-results"
+        log_and_capture(f"Waiting up to {user_interaction_wait._timeout}s for results container: {results_selector}")
+        # Use the LONG wait here, waiting for the user + wallet interaction
+        results_container = user_interaction_wait.until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, results_selector)),
+            message=f"Timeout waiting for presentation results container '{results_selector}'."
+        )
+        log_and_capture("Found vc-presentations-results element - presentation is complete")
+
+        # Find the 'View Content' button (use action_wait now)
+        log_and_capture("Looking for PID card's View Content button")
+        view_button_xpath = "//mat-card[.//mat-card-title[contains(text(), 'eu.europa.ec.eudi.pid.1')]]//button[.//span[contains(text(), 'View Content')]]"
+        view_content_button = action_wait.until(
+            EC.element_to_be_clickable((By.XPATH, view_button_xpath)),
+            message="Timeout waiting for 'View Content' button to be clickable."
+        )
+        log_and_capture("Found View Content button")
+
+        # Click the button (JS click preferred)
+        try:
+            driver.execute_script("arguments[0].click();", view_content_button)
+            log_and_capture("Clicked View Content button using JavaScript")
+        except Exception as click_err:
+            log_and_capture(f"JS click failed ({click_err}), trying regular click.")
+            try:
+                view_content_button.click()
+                log_and_capture("Clicked View Content button (fallback)")
+            except Exception as fallback_click_err:
+                 log_and_capture(f"Fallback click also failed: {fallback_click_err}")
+                 raise WebDriverException(f"Failed to click View Content button: {fallback_click_err}") from fallback_click_err
+
+        # Wait for the dialog (use action_wait)
+        log_and_capture("Waiting for dialog to appear")
+        # More stable selector often involves specific attributes or container types
+        dialog_selector = "mat-dialog-container, div[role='dialog']"
+        dialog = action_wait.until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, dialog_selector)),
+            message=f"Timeout waiting for dialog with selector '{dialog_selector}'."
+        )
+        log_and_capture(f"Found dialog using selector: {dialog_selector}")
+
+        # Get dialog text
+        log_and_capture("Getting dialog text content")
+        dialog_text = dialog.text if dialog else ""
+        log_and_capture(f"Dialog Text Length: {len(dialog_text)}")
+
+        # Extract data
+        log_and_capture("Extracting data using primary regex patterns")
+        extracted_data = {}
+        field_patterns = {
+            "birth_date": r"birth_date\s+value:\s*(\d{4}-\d{2}-\d{2})",
+            "family_name": r"family_name\s*\n\s*([^\n\r]+)",
+            "given_name": r"given_name\s*\n\s*([^\n\r]+)"
+        }
+        for field, pattern in field_patterns.items():
+            match = re.search(pattern, dialog_text, re.IGNORECASE | re.MULTILINE)
+            if match:
+                extracted_data[field] = match.group(1).strip()
+                log_and_capture(f"*** Extracted {field}: {extracted_data[field]} ***")
+            else:
+                 log_and_capture(f"Pattern did not match for {field}")
+        # --- End of Selenium Logic ---
+
+        # Update status based on extraction result
+        required_fields = set(field_patterns.keys())
+        found_fields = set(extracted_data.keys())
+        if found_fields == required_fields:
+            log_and_capture("Successfully extracted all required fields.")
+            request_data["status"] = "success"
+        else:
+            missing = required_fields - found_fields
+            log_and_capture(f"Extraction incomplete. Missing fields: {', '.join(missing)}")
+            request_data["status"] = "extraction_incomplete"
+
+        # Update presentation data
+        if request_data.get("presentation_data") is None: request_data["presentation_data"] = {}
+        request_data["presentation_data"]["extracted_data"] = extracted_data
+        request_data["presentation_data"]["dialog_text_length"] = len(dialog_text)
+        request_data["presentation_data"]["capture_timestamp"] = datetime.now().isoformat()
+        request_data["error"] = None # Clear previous error if successful now
+
+    except (TimeoutException, NoSuchElementException, WebDriverException) as selenium_err:
+        # Handle Selenium-specific errors gracefully
+        error_msg = f"Selenium error during background extraction: {str(selenium_err).splitlines()[0]}" # Get first line
+        log_and_capture(error_msg)
+        logging.warning(f"[BG Task {request_id}] Full Selenium error: {selenium_err}") # Log full error less verbosely
+        request_data["status"] = "error"
+        request_data["error"] = error_msg
+        if request_data.get("presentation_data") is None: request_data["presentation_data"] = {}
+        request_data["presentation_data"]["extracted_data"] = None
+
+    except Exception as e:
+        # Catch other unexpected errors
+        error_msg = f"Unexpected error during background extraction: {str(e)}"
+        log_and_capture(error_msg)
+        logging.exception(f"[BG Task {request_id}] Stack Trace:")
+        request_data["status"] = "error"
+        request_data["error"] = error_msg
+        if request_data.get("presentation_data") is None: request_data["presentation_data"] = {}
+        request_data["presentation_data"]["extracted_data"] = None
+
+    finally:
+        log_and_capture("Background task finishing. Updating JSON and cleaning up.")
+        # Update the JSON file with final status and logs
+        request_data["logs"] = log_messages
+        try:
+            with open(file_path, "w") as f:
+                json.dump(request_data, f, indent=4)
+            log_and_capture(f"Successfully updated session file: {file_path}")
+        except Exception as write_err:
+            log_and_capture(f"ERROR updating session file {file_path}: {write_err}")
+            logging.error(f"[BG Task {request_id}] Failed to write final status to {file_path}: {write_err}")
+
+        # Cleanup: Quit driver and remove session
+        if driver:
+            try:
+                driver.quit()
+                log_and_capture("Driver quit successfully.")
+            except Exception as quit_err:
+                log_and_capture(f"Error quitting driver: {quit_err}")
+        if request_id in active_sessions:
+            try:
+                del active_sessions[request_id]
+                log_and_capture("Removed session from active_sessions.")
+            except KeyError:
+                 log_and_capture("Session already removed from active_sessions.")
 
