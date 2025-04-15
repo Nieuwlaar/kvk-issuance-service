@@ -16,6 +16,7 @@ import json
 import os
 from pathlib import Path
 import re
+from enum import Enum
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,11 @@ active_sessions = {}
 class PowerOfRepresentationRequest(BaseModel):
     legal_person_identifier: str
     legal_name: str
+
+# Define format enum for clarity (optional but recommended)
+class PorFormat(str, Enum):
+    MDOC = "mdoc"
+    SD_JWT_VC = "sd_jwt_vc"
 
 # --- Helper Function ---
 def get_request_data_from_file(session_id: str) -> Optional[Dict[str, Any]]:
@@ -56,9 +62,9 @@ def get_request_data_from_file(session_id: str) -> Optional[Dict[str, Any]]:
         return None # Indicate general read error
 
 @router.post("/power-of-representation")
-async def create_power_of_representation(request: PowerOfRepresentationRequest):
+async def create_power_of_representation(request: PowerOfRepresentationRequest, format: PorFormat = PorFormat.SD_JWT_VC):
     try:
-        logging.info(f"Received Power of Representation request for: {request.legal_name} ({request.legal_person_identifier})")
+        logging.info(f"Received Power of Representation request for: {request.legal_name} ({request.legal_person_identifier}) with format: {format.value}")
         
         # Initialize Chrome in headless mode with optimized settings
         options = webdriver.ChromeOptions()
@@ -102,8 +108,15 @@ async def create_power_of_representation(request: PowerOfRepresentationRequest):
             # Use WebDriverWait with shorter timeouts
             wait = WebDriverWait(driver, 5)
             
-            # Select Power of Representation and Pre-Auth
-            wait.until(EC.presence_of_element_located((By.NAME, "eu.europa.ec.eudi.por_mdoc"))).click()
+            # Select Power of Representation based on the format query parameter
+            if format == PorFormat.SD_JWT_VC:
+                por_element_name = "eu.europa.ec.eudi.por_sd_jwt_vc"
+                logging.info("Selecting SD-JWT-VC format")
+            else: 
+                por_element_name = "eu.europa.ec.eudi.por_mdoc"
+                logging.info("Selecting mdoc format (default)")
+
+            wait.until(EC.presence_of_element_located((By.NAME, por_element_name))).click()
             driver.find_element(By.CSS_SELECTOR, 'input[value="pre_auth_code"]').click()
             driver.find_element(By.CSS_SELECTOR, "input[type='submit'][value='Submit']").click()
             
