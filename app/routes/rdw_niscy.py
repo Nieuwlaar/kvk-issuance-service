@@ -97,7 +97,7 @@ async def create_power_of_representation(request: PowerOfRepresentationRequest):
         
         try:
             # Navigate and fill forms with minimal waits
-            driver.get("https://niscy-issuer.nieuwlaar.com/credential_offer_choice")
+            driver.get("https://eudi-issuer.nieuwlaar.com/credential_offer_choice")
             
             # Use WebDriverWait with shorter timeouts
             wait = WebDriverWait(driver, 5)
@@ -417,7 +417,7 @@ async def verify_pid_authentication(background_tasks: BackgroundTasks):
     try:
         log_and_capture("Initializing WebDriver...")
         driver = webdriver.Chrome(service=service, options=options)
-        driver.set_page_load_timeout(20)  # Increased slightly from 15
+        driver.set_page_load_timeout(30)  # Increased slightly from 15
         short_wait = WebDriverWait(driver, 10) # Increased slightly from 7
 
         # Navigate to the verifier website
