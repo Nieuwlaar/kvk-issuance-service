@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, status, Header, Cookie
+from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
 import logging
 import tempfile
@@ -10,15 +11,24 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.service import Service
 import time
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 import uuid
 import json
 import os
 from pathlib import Path
 import re
 from enum import Enum
+import jwt
+import hashlib
+from fastapi.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
+
+# JWT settings
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+REFRESH_TOKEN_EXPIRE_DAYS = 7
 
 # Create router with prefix
 router = APIRouter()
@@ -26,6 +36,9 @@ user_data_dir = tempfile.mkdtemp()
 
 # In-memory store for active driver sessions
 active_sessions = {}
+
+# In-memory store for revoked tokens (should be replaced with a database in production)
+revoked_tokens = set()
 
 # Define the request models
 class PowerOfRepresentationRequest(BaseModel):
@@ -37,7 +50,30 @@ class PorFormat(str, Enum):
     MDOC = "mdoc"
     SD_JWT_VC = "sd_jwt_vc"
 
-# --- Helper Function ---
+# Auth models
+class TokenRequest(BaseModel):
+    auth_id: str
+
+class Token(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str
+    expires_in: int
+
+class TokenData(BaseModel):
+    sub: str
+    given_name: Optional[str] = None
+    family_name: Optional[str] = None
+    birth_date: Optional[str] = None
+    exp: Optional[int] = None
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
+
+# OAuth2 scheme for token verification
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+# --- Helper Functions ---
 def get_request_data_from_file(session_id: str) -> Optional[Dict[str, Any]]:
     """Retrieve request data from the session JSON file."""
     file_path = Path("authentication-requests") / f"{session_id}.json"
@@ -60,6 +96,200 @@ def get_request_data_from_file(session_id: str) -> Optional[Dict[str, Any]]:
     except Exception as e:
         logger.error(f"Error reading session data file {file_path}: {str(e)}")
         return None # Indicate general read error
+
+def create_user_id(given_name: str, family_name: str, birth_date: str) -> str:
+    """Create a consistent user ID from user attributes."""
+    # Combine attributes and create a hash to use as user ID
+    combined = f"{given_name}:{family_name}:{birth_date}"
+    return hashlib.sha256(combined.encode()).hexdigest()
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    """Create a JWT access token."""
+    to_encode = data.copy()
+    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+def create_refresh_token(user_id: str) -> str:
+    """Create a JWT refresh token."""
+    expire = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    to_encode = {"sub": user_id, "exp": expire, "type": "refresh"}
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+def verify_token(token: str) -> Optional[TokenData]:
+    """Verify a JWT token and return token data."""
+    try:
+        # Check if token is revoked
+        if token in revoked_tokens:
+            return None
+        
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("sub")
+        if user_id is None:
+            return None
+        
+        # Check for token expiration
+        exp = payload.get("exp")
+        if exp and datetime.utcnow() > datetime.fromtimestamp(exp):
+            return None
+            
+        return TokenData(
+            sub=user_id,
+            given_name=payload.get("given_name"),
+            family_name=payload.get("family_name"),
+            birth_date=payload.get("birth_date"),
+            exp=exp
+        )
+    except jwt.PyJWTError:
+        return None
+
+async def get_current_user(token: str = Depends(oauth2_scheme)) -> TokenData:
+    """Dependency to get the current authenticated user from a token."""
+    token_data = verify_token(token)
+    if token_data is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return token_data
+
+# --- Auth Endpoints ---
+@router.post("/auth/token", response_model=Token)
+async def generate_token(request: TokenRequest):
+    """Generate JWT tokens after successful PID verification."""
+    # Get authentication data
+    request_data = get_request_data_from_file(request.auth_id)
+    
+    if not request_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Authentication session not found"
+        )
+        
+    if request_data.get("status") != "success":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Authentication not successful. Status: {request_data.get('status')}"
+        )
+        
+    # Extract user data
+    presentation_data = request_data.get("presentation_data", {})
+    extracted_data = presentation_data.get("extracted_data", {})
+    
+    if not extracted_data:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No user data extracted from authentication"
+        )
+        
+    given_name = extracted_data.get("given_name")
+    family_name = extracted_data.get("family_name")
+    birth_date = extracted_data.get("birth_date")
+    
+    if not given_name or not family_name or not birth_date:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Incomplete user data in authentication"
+        )
+        
+    # Create user ID
+    user_id = create_user_id(given_name, family_name, birth_date)
+    
+    # Create token data
+    token_data = {
+        "sub": user_id,
+        "given_name": given_name,
+        "family_name": family_name,
+        "birth_date": birth_date
+    }
+    
+    # Generate tokens
+    access_token = create_access_token(token_data)
+    refresh_token = create_refresh_token(user_id)
+    
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60  # in seconds
+    }
+
+@router.post("/auth/refresh", response_model=Token)
+async def refresh_token(request: RefreshTokenRequest):
+    """Generate new access token using refresh token."""
+    try:
+        # Verify refresh token
+        payload = jwt.decode(request.refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
+        
+        # Check if token is revoked
+        if request.refresh_token in revoked_tokens:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token has been revoked"
+            )
+            
+        # Check if it's actually a refresh token
+        if payload.get("type") != "refresh":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Not a valid refresh token"
+            )
+            
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid token: missing user ID"
+            )
+            
+        # Create new token data (without user details as we don't have them here)
+        token_data = {"sub": user_id}
+        
+        # Generate new tokens
+        access_token = create_access_token(token_data)
+        new_refresh_token = create_refresh_token(user_id)
+        
+        return {
+            "access_token": access_token,
+            "refresh_token": new_refresh_token,
+            "token_type": "bearer",
+            "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60  # in seconds
+        }
+        
+    except jwt.PyJWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token"
+        )
+
+@router.get("/auth/validate")
+async def validate_token(current_user: TokenData = Depends(get_current_user)):
+    """Validate token and return user information."""
+    return {
+        "user_id": current_user.sub,
+        "given_name": current_user.given_name,
+        "family_name": current_user.family_name,
+        "birth_date": current_user.birth_date,
+        "exp": current_user.exp
+    }
+
+@router.post("/auth/logout")
+async def logout(token: str = Depends(oauth2_scheme)):
+    """Invalidate the current token."""
+    # Add token to revoked list
+    revoked_tokens.add(token)
+    return {"detail": "Successfully logged out"}
+
+@router.get("/user/profile")
+async def get_user_profile(current_user: TokenData = Depends(get_current_user)):
+    """Return the authenticated user's profile data."""
+    return {
+        "user_id": current_user.sub,
+        "given_name": current_user.given_name,
+        "family_name": current_user.family_name,
+        "birth_date": current_user.birth_date
+    }
 
 @router.post("/power-of-representation")
 async def create_power_of_representation(request: PowerOfRepresentationRequest, format: PorFormat = PorFormat.SD_JWT_VC):
