@@ -59,3 +59,24 @@ class KVKBevoegdhedenAPI:
         response = requests.post(url, json=payload)
         response.raise_for_status()
         return response.json()
+
+    @staticmethod
+    def get_natural_person_company_certificate(given_name, family_name, birthdate):
+        """
+        Fetches company certificates associated with a natural person.
+        
+        :param given_name: First name(s) of the person.
+        :param family_name: Last name of the person.
+        :param birthdate: Date of birth in ISO format (YYYY-MM-DD).
+        :return: JSON response with company certificates where the person has authorization.
+        :raises: HTTPError if the request fails.
+        """
+        url = f"{BASE_URL}/natural-person/company-certificate"
+        payload = {
+            "givenName": given_name,
+            "familyName": family_name,
+            "birthdate": birthdate
+        }
+        response = requests.post(url, json=payload)
+        response.raise_for_status()
+        return response.json()

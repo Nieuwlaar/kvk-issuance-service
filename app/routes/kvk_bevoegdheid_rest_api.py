@@ -14,6 +14,12 @@ class SignatoryRightsRequest(BaseModel):
     geboortedatum: str  # Format: "DD-MM-YYYY"
     voorvoegselGeslachtsnaam: Optional[str] = ""
 
+# Pydantic model for natural person company certificate request
+class NaturalPersonCompanyCertificateRequest(BaseModel):
+    givenName: str
+    familyName: str
+    birthdate: str  # Format: "YYYY-MM-DD" (ISO format)
+
 @router.get("/lpid/{kvk_nummer}")
 async def get_lpid(kvk_nummer: str):
     """Proxy endpoint for getting LPID details"""
@@ -40,6 +46,18 @@ async def check_signatory_right(kvk_nummer: str, request: SignatoryRightsRequest
             voornamen=request.voornamen,
             geboortedatum=request.geboortedatum,
             voorvoegselGeslachtsnaam=request.voorvoegselGeslachtsnaam
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/natural-person/company-certificate")
+async def get_natural_person_company_certificate(request: NaturalPersonCompanyCertificateRequest):
+    """Proxy endpoint for getting company certificates associated with a natural person"""
+    try:
+        return KVKBevoegdhedenAPI.get_natural_person_company_certificate(
+            given_name=request.givenName,
+            family_name=request.familyName,
+            birthdate=request.birthdate
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
