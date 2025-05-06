@@ -358,9 +358,9 @@ async def create_power_of_representation(request: PowerOfRepresentationRequest, 
             if not full_powers.is_selected():
                 full_powers.click()
             
-            today = datetime.now().strftime("%Y-%m-%d")
+            yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
             effective_date = driver.find_element(By.NAME, "effective_from_date")
-            driver.execute_script(f"arguments[0].value = '{today}'", effective_date)
+            driver.execute_script(f"arguments[0].value = '{yesterday}'", effective_date)
             
             driver.find_element(By.CSS_SELECTOR, "input[type='submit'][value='Submit']").click()
             
