@@ -724,7 +724,7 @@ async def verify_pid_authentication(background_tasks: BackgroundTasks):
 
         # Wait for the QR code page (wallet link) to load
         log_and_capture("Waiting for wallet link to appear")
-        wallet_link_selector = "a[href^='eudi-openid4vp://']"
+        wallet_link_selector = "a[href^='haip://']"
         wallet_link = short_wait.until(EC.presence_of_element_located(
             (By.CSS_SELECTOR, wallet_link_selector)
         )).get_attribute('href')
