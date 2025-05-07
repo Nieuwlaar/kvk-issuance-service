@@ -665,7 +665,7 @@ async def verify_pid_authentication(background_tasks: BackgroundTasks):
 
         # Navigate to the verifier website
         log_and_capture("Navigating to verifier website")
-        driver.get("https://eudi-verifier.nieuwlaar.com/custom-request/create")
+        driver.get("https://niscy-verifier.nieuwlaar.com/custom-request/create")
 
         # Generate random UUIDs for id and nonce
         request_id = str(uuid.uuid4())
