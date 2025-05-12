@@ -45,8 +45,26 @@ class PowerOfRepresentationRequest(BaseModel):
     legal_person_identifier: str
     legal_name: str
 
+# Define new model for Company Registration
+class CompanyRegistrationRequest(BaseModel):
+    legal_person_identifier: str  # This will be mapped to company_EUID
+    legal_name: str               # This will be mapped to company_name
+    # Optional fields
+    activity_description: Optional[str] = None
+    admin_unit_L1: Optional[str] = None
+    admin_unit_L2: Optional[str] = None
+    company_activity: Optional[str] = None
+    company_contact_data: Optional[str] = None
+    company_end_date: Optional[str] = None
+    company_status: Optional[str] = None
+
 # Define format enum for clarity (optional but recommended)
 class PorFormat(str, Enum):
+    MDOC = "mdoc"
+    SD_JWT_VC = "sd_jwt_vc"
+
+# Also define format enum for Company Registration
+class CompanyRegistrationFormat(str, Enum):
     MDOC = "mdoc"
     SD_JWT_VC = "sd_jwt_vc"
 
@@ -1058,4 +1076,121 @@ async def get_authentication_request_file(session_id: str):
     # FastAPI will serialize this dict to JSON.
     logger.info(f"Successfully retrieved request file content for session {session_id}. Status in file: {request_data.get('status', 'N/A')}")
     return request_data
+
+@router.post("/company-registration")
+async def create_company_registration(request: CompanyRegistrationRequest, format: CompanyRegistrationFormat = CompanyRegistrationFormat.SD_JWT_VC):
+    try:
+        logging.info(f"Received Company Registration request for: {request.legal_name} ({request.legal_person_identifier}) with format: {format.value}")
+        
+        # Initialize Chrome in headless mode with optimized settings
+        options = webdriver.ChromeOptions()
+        options.binary_location = "/usr/bin/chromium"  # Ensure chromium is used
+        options.add_argument("--headless=new")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--disable-software-rasterizer")
+        options.add_argument("--disable-extensions")
+        options.add_argument("--disable-infobars")
+        options.add_argument("--disable-notifications")
+        options.add_argument("--blink-settings=imagesEnabled=false")
+        options.add_argument("--remote-debugging-port=9222")
+        options.add_argument("--window-size=1920x1080")
+        options.add_argument(f"--user-data-dir={user_data_dir}")
+        options.add_argument("--disable-background-networking")
+        options.add_argument("--disable-default-apps")
+        options.add_argument("--disable-sync")
+        options.add_argument("--metrics-recording-only")
+        options.add_argument("--mute-audio")
+        options.add_argument("--no-first-run")
+        options.add_argument("--safebrowsing-disable-auto-update")
+        options.add_argument("--enable-automation")
+        options.add_argument("--password-store=basic")
+        options.add_argument("--single-process")
+        options.add_argument("--no-zygote")
+
+        # Use the system-installed chromedriver
+        service = Service("/usr/bin/chromedriver")  # Specify path to the chromedriver
+        driver = webdriver.Chrome(
+            service=service,
+            options=options
+        )
+        driver.set_page_load_timeout(30)
+        
+        try:
+            # Navigate and fill forms with minimal waits
+            driver.get("https://eudi-issuer.nieuwlaar.com/credential_offer_choice")
+            
+            # Use WebDriverWait with shorter timeouts
+            wait = WebDriverWait(driver, 5)
+            
+            # Select Company Registration based on the format query parameter
+            if format == CompanyRegistrationFormat.SD_JWT_VC:
+                cr_element_name = "eu.europa.ec.eudi.cr_sd_jwt_vc"
+                logging.info("Selecting SD-JWT-VC format")
+            else:
+                # NOTE: If mdoc format exists for Company Registration, use the proper name
+                # This is a placeholder as the form doesn't explicitly show a cr_mdoc option
+                cr_element_name = "eu.europa.ec.eudi.cr_mdoc"
+                logging.info("Selecting mdoc format (default)")
+
+            wait.until(EC.presence_of_element_located((By.NAME, cr_element_name))).click()
+            driver.find_element(By.CSS_SELECTOR, 'input[value="pre_auth_code"]').click()
+            driver.find_element(By.CSS_SELECTOR, "input[type='submit'][value='Submit']").click()
+            
+            # Fill the required form fields
+            wait.until(EC.presence_of_element_located((By.NAME, "company_EUID"))).send_keys(request.legal_person_identifier)
+            driver.find_element(By.NAME, "company_name").send_keys(request.legal_name)
+            
+            # Fill optional fields if provided
+            if request.activity_description:
+                driver.find_element(By.NAME, "activity_description").send_keys(request.activity_description)
+            
+            if request.admin_unit_L1:
+                driver.find_element(By.NAME, "admin_unit_L1").send_keys(request.admin_unit_L1)
+                
+            if request.admin_unit_L2:
+                driver.find_element(By.NAME, "admin_unit_L2").send_keys(request.admin_unit_L2)
+                
+            if request.company_activity:
+                driver.find_element(By.NAME, "company_activity").send_keys(request.company_activity)
+                
+            if request.company_contact_data:
+                driver.find_element(By.NAME, "company_contact_data").send_keys(request.company_contact_data)
+                
+            if request.company_end_date:
+                driver.find_element(By.NAME, "company_end_date").send_keys(request.company_end_date)
+                
+            if request.company_status:
+                driver.find_element(By.NAME, "company_status").send_keys(request.company_status)
+            
+            # Submit the form
+            driver.find_element(By.CSS_SELECTOR, "input[type='submit'][value='Submit']").click()
+            
+            # Click Authorize
+            wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[type='submit'][value='Authorize']"))).click()
+            
+            # Extract final data
+            qr_code = wait.until(EC.presence_of_element_located(
+                (By.CSS_SELECTOR, "img[src^='data:image/png;base64,']")
+            )).get_attribute('src')
+            
+            tx_code = driver.find_element(By.NAME, "tx_code").get_attribute('value')
+            eudiw_link = driver.find_element(By.CSS_SELECTOR, "a[href^='openid-credential-offer://']").get_attribute('href')
+            
+            return {
+                "status": "success",
+                "data": {
+                    "qr_code": qr_code,
+                    "transaction_code": tx_code,
+                    "eudiw_link": eudiw_link
+                }
+            }
+            
+        finally:
+            driver.quit()
+            
+    except Exception as e:
+        logging.error(f"Error in create_company_registration: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
